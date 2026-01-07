@@ -1,119 +1,138 @@
--- =========================================================
--- SCRIPT: FAST ATTACK M1 + INF STAMINA + HITBOX HEAD (FULL VERSION)
--- ĐỘ DÀI: Đầy đủ các bước kiểm tra, không rút gọn, không viết tắt.
--- TÍNH NĂNG: Phím G (Fast Attack) | Hitbox Head 0-80 | Team Check Ally
--- =========================================================
+-- ============================================================================================
+-- SCRIPT: TỔNG HỢP HỆ THỐNG BLOX FRUITS (FULL VERSION 2026)
+-- TÍNH NĂNG: FAST ATTACK M1 + INFINITE STAMINA + HITBOX HEAD + CFRAME SPEED
+-- YÊU CẦU: GIỮ NGUYÊN TẤT CẢ CÁC HÀM, KHÔNG VIẾT TẮT, KHÔNG RÚT GỌN LOGIC
+-- ============================================================================================
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- [[ PHẦN 1: KHỞI TẠO CÁC DỊCH VỤ HỆ THỐNG (SERVICES) ]]
+-- Việc khai báo đầy đủ giúp script hoạt động ổn định và tường minh hơn.
+
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local Teams = game:GetService("Teams")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Teams = game:GetService("Teams")
+local HttpService = game:GetService("HttpService") -- Dự phòng cho các tác vụ dữ liệu
 
+-- Đối tượng người chơi cục bộ
 local Player = Players.LocalPlayer
 
--- ---------------------------------------------------------
--- PHẦN 1: INFINITE STAMINA (GIỮ NGUYÊN PHONG CÁCH CHI TIẾT)
--- ---------------------------------------------------------
+-- --------------------------------------------------------------------------------------------
+-- [[ PHẦN 2: KHAI BÁO BIẾN CẤU HÌNH VÀ TRẠNG THÁI TOÀN CỤC ]]
+-- --------------------------------------------------------------------------------------------
+
+-- Biến toàn cục CFrame Speed (Yêu cầu giữ nguyên _G)
+_G.CFrameSpeedValue = 0 
+_G.IsActive = true
+
+-- Các thông số tấn công (Cấu hình chi tiết)
+local AttackValue = 0.48
+local AttacksPerLoop = 4
+local AttackDistance = 400
+local LoopDelay = 0.4
+
+-- Biến điều khiển trạng thái bật/tắt của các tính năng
+local Enabled = false              -- Trạng thái Fast Attack (Phím G)
+local HitboxEnabled = false       -- Trạng thái Hitbox Head
+local HitboxSize = 0              -- Kích thước Hitbox do người dùng nhập
+
+-- Bảng lưu trữ dữ liệu gốc để khôi phục khi cần thiết
+local OriginalHeadSizes = {}
+
+-- Đường dẫn Remote (SimpleSpy Blox Fruits)
+local NetFolder = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+local RegisterAttack = NetFolder:WaitForChild("RE/RegisterAttack")
+local RegisterHit = NetFolder:WaitForChild("RE/RegisterHit")
+
+-- --------------------------------------------------------------------------------------------
+-- [[ PHẦN 3: ĐỊNH NGHĨA CÁC HÀM LOGIC (FUNCTIONS) - GIỮ NGUYÊN 100% ]]
+-- --------------------------------------------------------------------------------------------
+
+-- 1. Hàm áp dụng Thể lực vô hạn (Infinite Stamina)
 local function ApplyInfiniteStaminaLogic()
     local character = Player.Character
     
     if character ~= nil then
-        -- Tìm kiếm thuộc tính Energy hoặc Stamina một cách chi tiết
+        -- Tìm kiếm đối tượng Energy
         local energyStat = character:FindFirstChild("Energy")
         
+        -- Nếu không thấy Energy, tìm kiếm Stamina
         if energyStat == nil then
             energyStat = character:FindFirstChild("Stamina")
         end
 
         if energyStat ~= nil then
-            -- Tìm kiếm giá trị giới hạn tối đa của thể lực
+            -- Tìm giá trị Max của Energy để đồng bộ
             local maxEnergy = energyStat:FindFirstChild("MaxValue")
             
             if maxEnergy == nil then
                 maxEnergy = energyStat:FindFirstChild("MaxEnergy")
             end
 
-            -- Thực hiện gán giá trị hiện tại bằng giá trị tối đa
+            -- Thực hiện gán giá trị hiện tại bằng giá trị tối đa (Full thể lực)
             if maxEnergy ~= nil then
                 energyStat.Value = maxEnergy.Value
             else
-                -- Giá trị dự phòng nếu không tìm thấy MaxValue trong hệ thống
+                -- Giá trị mặc định cực cao nếu không tìm thấy MaxValue
                 energyStat.Value = 10000
             end
         end
     end
 end
 
--- Kết nối với Heartbeat để đảm bảo thể lực luôn đầy mỗi khung hình
-RunService.Heartbeat:Connect(function()
-    ApplyInfiniteStaminaLogic()
-end)
-
--- ---------------------------------------------------------
--- PHẦN 2: CÁC BIẾN CẤU CẤU HÌNH VÀ REMOTE (GIỮ NGUYÊN GỐC)
--- ---------------------------------------------------------
-
--- Remote đúng SimpleSpy cho Blox Fruits
-local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
-local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
-
--- SETTING CHÍNH THỨC CỦA NGƯỜI DÙNG
-local AttackValue = 0.48
-local AttacksPerLoop = 4
-local AttackDistance = 400
-local LoopDelay = 0.4
-
--- Biến điều khiển trạng thái
-local Enabled = false -- Trạng thái của Fast Attack (Bật/Tắt bằng phím G)
-local HitboxEnabled = false -- Trạng thái của Hitbox Head
-local HitboxSize = 0 -- Kích thước mặc định của Hitbox
-
--- Bảng lưu trữ kích thước gốc để khôi phục khi tắt script
-local OriginalHeadSizes = {}
-
--- ---------------------------------------------------------
--- PHẦN 3: HÀM KIỂM TRA TEAM VÀ ALLY (NÂNG CẤP)
--- ---------------------------------------------------------
+-- 2. Hàm kiểm tra Team và Ally cực kỳ chi tiết (Team Check)
 local function IsSameTeam(targetPlayer)
-    if targetPlayer == nil then return false end
-    if targetPlayer.Team == nil then return false end
+    if targetPlayer == nil then 
+        return false 
+    end
+    
+    if targetPlayer.Team == nil then 
+        return false 
+    end
     
     local myTeam = Player.Team
     local targetTeam = targetPlayer.Team
     
-    if myTeam == nil then return false end
+    if myTeam == nil then 
+        return false 
+    end
     
-    -- Kiểm tra phe Hải quân (Marines)
+    -- Kiểm tra logic phe Hải quân (Marines)
     if myTeam.Name == "Marines" then
         if targetTeam.Name == "Marines" then
             return true
         end
     end
     
-    -- Kiểm tra phe Hải tặc (Pirates) và hệ thống đồng minh (Ally/Crew)
+    -- Kiểm tra logic phe Hải tặc (Pirates) và hệ thống đồng minh
     if myTeam.Name == "Pirates" then
         if targetTeam.Name == "Marines" then
             return false
         elseif targetTeam.Name == "Pirates" then
-            -- Kiểm tra nếu là chính bản thân mình
+            -- Nếu là chính bản thân mình thì bỏ qua
             if targetPlayer.Name == Player.Name then
                 return true
             end
             
-            -- Kiểm tra hệ thống Ally và Crew của Blox Fruits
+            -- Kiểm tra quan hệ bạn bè và băng đảng (Crew/Ally)
             local isAlly = false
-            local success, err = pcall(function()
-                -- Check bạn bè
+            
+            local status, result = pcall(function()
+                -- Kiểm tra danh sách bạn bè Roblox
                 if Player:IsFriendsWith(targetPlayer.UserId) then
                     isAlly = true
                 end
-                -- Check Crew (Băng hải tặc)
+                
+                -- Kiểm tra giá trị Crew bên trong nhân vật
                 local myCrew = Player:FindFirstChild("Crew")
                 local targetCrew = targetPlayer:FindFirstChild("Crew")
-                if myCrew and targetCrew and myCrew.Value ~= "" and myCrew.Value == targetCrew.Value then
-                    isAlly = true
+                
+                if myCrew ~= nil and targetCrew ~= nil then
+                    if myCrew.Value ~= "" and myCrew.Value == targetCrew.Value then
+                        isAlly = true
+                    end
                 end
             end)
             
@@ -121,10 +140,11 @@ local function IsSameTeam(targetPlayer)
                 return true
             end
             
-            -- Kiểm tra leaderstats dự phòng
-            local myLeaderstats = Player:FindFirstChild("leaderstats")
-            local targetLeaderstats = targetPlayer:FindFirstChild("leaderstats")
-            if myLeaderstats and targetLeaderstats then
+            -- Kiểm tra DisplayName dự phòng trong leaderstats
+            local myLeader = Player:FindFirstChild("leaderstats")
+            local targetLeader = targetPlayer:FindFirstChild("leaderstats")
+            
+            if myLeader ~= nil and targetLeader ~= nil then
                 if targetPlayer.DisplayName == Player.DisplayName then
                     return true
                 end
@@ -135,31 +155,42 @@ local function IsSameTeam(targetPlayer)
     return false
 end
 
--- ---------------------------------------------------------
--- PHẦN 4: HÀM NÂNG CẤP KIỂM TRA VŨ KHÍ (GIỮ NGUYÊN)
--- ---------------------------------------------------------
+-- 3. Hàm kiểm tra vũ khí đang cầm (Melee hoặc Sword)
 local function IsEquippedMeleeOrSword()
     local character = Player.Character
-    if character == nil then return false end
     
-    -- Tìm Tool đang cầm trên tay
+    if character == nil then 
+        return false 
+    end
+    
+    -- Tìm công cụ (Tool) đang cầm trong nhân vật
     local tool = character:FindFirstChildOfClass("Tool")
-    if tool == nil then return false end
     
-    -- Cách 1: Kiểm tra ToolTip
+    if tool == nil then 
+        return false 
+    end
+    
+    -- Kiểm tra thông qua thuộc tính ToolTip
     local toolTip = tool.ToolTip
     if toolTip == "Melee" or toolTip == "Sword" then
         return true
     end
     
-    -- Cách 2: Kiểm tra các đối tượng nhận diện bên trong Tool
-    if tool:FindFirstChild("Melee") or tool:FindFirstChild("Sword") then
+    -- Kiểm tra thông qua các đối tượng nhận diện đặc trưng
+    local isMelee = tool:FindFirstChild("Melee")
+    local isSword = tool:FindFirstChild("Sword")
+    
+    if isMelee ~= nil or isSword ~= nil then
         return true
     end
 
-    -- Cách 3: Kiểm tra cấu trúc Handle và Attack
-    if tool:FindFirstChild("Handle") then
-        if tool:FindFirstChild("Attack") or tool:FindFirstChild("Main") then
+    -- Kiểm tra cấu trúc Handle và logic Attack mặc định
+    local handle = tool:FindFirstChild("Handle")
+    if handle ~= nil then
+        local attackObj = tool:FindFirstChild("Attack")
+        local mainObj = tool:FindFirstChild("Main")
+        
+        if attackObj ~= nil or mainObj ~= nil then
             return true
         end
     end
@@ -167,35 +198,40 @@ local function IsEquippedMeleeOrSword()
     return false
 end
 
--- ---------------------------------------------------------
--- PHẦN 5: LOGIC HITBOX HEAD (KHÔNG RÚT GỌN)
--- ---------------------------------------------------------
-local function ApplyHitboxToPlayers()
-    -- Duyệt qua tất cả người chơi trong Server
-    for _, targetPlayer in pairs(Players:GetPlayers()) do
-        if targetPlayer ~= Player and targetPlayer.Character ~= nil then
-            local head = targetPlayer.Character:FindFirstChild("Head")
+-- 4. Hàm áp dụng Hitbox Head cho người chơi khác
+local function ApplyHitboxLogicToAllPlayers()
+    local allPlayers = Players:GetPlayers()
+    
+    for index = 1, #allPlayers do
+        local targetPlayer = allPlayers[index]
+        
+        if targetPlayer ~= Player then
+            local targetChar = targetPlayer.Character
             
-            if head ~= nil and head:IsA("BasePart") then
-                -- Kiểm tra xem có phải kẻ địch không
-                local isFriend = IsSameTeam(targetPlayer)
+            if targetChar ~= nil then
+                local head = targetChar:FindFirstChild("Head")
                 
-                if isFriend == false and HitboxEnabled == true then
-                    -- Lưu kích cỡ gốc trước khi thay đổi để có thể phục hồi
-                    if OriginalHeadSizes[targetPlayer.UserId] == nil then
-                        OriginalHeadSizes[targetPlayer.UserId] = head.Size
-                    end
+                if head ~= nil and head:IsA("BasePart") then
+                    -- Kiểm tra xem đối tượng có phải đồng đội không
+                    local isFriend = IsSameTeam(targetPlayer)
                     
-                    -- Thực hiện thay đổi kích thước đầu
-                    head.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                    head.Transparency = 0.5
-                    head.CanCollide = false
-                else
-                    -- Phục hồi về trạng thái ban đầu nếu tắt hoặc là đồng đội
-                    if OriginalHeadSizes[targetPlayer.UserId] ~= nil then
-                        head.Size = OriginalHeadSizes[targetPlayer.UserId]
-                        head.Transparency = 0
-                        head.CanCollide = true
+                    if isFriend == false and HitboxEnabled == true then
+                        -- Lưu kích thước ban đầu nếu chưa lưu
+                        if OriginalHeadSizes[targetPlayer.UserId] == nil then
+                            OriginalHeadSizes[targetPlayer.UserId] = head.Size
+                        end
+                        
+                        -- Thay đổi các thuộc tính Part
+                        head.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                        head.Transparency = 0.5
+                        head.CanCollide = false
+                    else
+                        -- Phục hồi lại kích thước ban đầu (Reset)
+                        if OriginalHeadSizes[targetPlayer.UserId] ~= nil then
+                            head.Size = OriginalHeadSizes[targetPlayer.UserId]
+                            head.Transparency = 0
+                            head.CanCollide = true
+                        end
                     end
                 end
             end
@@ -203,54 +239,57 @@ local function ApplyHitboxToPlayers()
     end
 end
 
--- Chạy cập nhật Hitbox liên tục
-RunService.RenderStepped:Connect(function()
-    ApplyHitboxToPlayers()
-end)
-
--- ---------------------------------------------------------
--- PHẦN 6: HÀM TÌM KIẾM MỤC TIÊU (GIỮ NGUYÊN CHI TIẾT)
--- ---------------------------------------------------------
-local function GetNearestTargetInRange()
+-- 5. Hàm tìm kiếm mục tiêu gần nhất để thực hiện Fast Attack
+local function GetNearestEnemyInRange()
     local closestPart = nil
     local closestDist = AttackDistance
-    local character = Player.Character
     
+    local character = Player.Character
     if character == nil then return nil end
+    
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if rootPart == nil then return nil end
     
-    -- 1. Tìm mục tiêu trong thư mục Enemies (Quái vật)
+    -- KIỂM TRA QUÁI VẬT (ENEMIES)
     local enemiesFolder = Workspace:FindFirstChild("Enemies")
     if enemiesFolder ~= nil then
-        for _, enemy in pairs(enemiesFolder:GetChildren()) do
+        local enemyList = enemiesFolder:GetChildren()
+        for i = 1, #enemyList do
+            local enemy = enemyList[i]
             local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
             local enemyHum = enemy:FindFirstChild("Humanoid")
             
-            if enemyRoot and enemyHum and enemyHum.Health > 0 then
-                local distance = (enemyRoot.Position - rootPart.Position).Magnitude
-                if distance < closestDist then
-                    closestDist = distance
-                    closestPart = enemyRoot
+            if enemyRoot ~= nil and enemyHum ~= nil then
+                if enemyHum.Health > 0 then
+                    local distance = (enemyRoot.Position - rootPart.Position).Magnitude
+                    if distance < closestDist then
+                        closestDist = distance
+                        closestPart = enemyRoot
+                    end
                 end
             end
         end
     end
     
-    -- 2. Tìm mục tiêu là Người chơi khác (PVP)
-    for _, targetPlayer in pairs(Players:GetPlayers()) do
-        if targetPlayer ~= Player and targetPlayer.Character ~= nil then
-            local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local targetHum = targetPlayer.Character:FindFirstChild("Humanoid")
+    -- KIỂM TRA NGƯỜI CHƠI (PVP)
+    local playerList = Players:GetPlayers()
+    for j = 1, #playerList do
+        local otherPlayer = playerList[j]
+        
+        if otherPlayer ~= Player and otherPlayer.Character ~= nil then
+            local targetRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetHum = otherPlayer.Character:FindFirstChild("Humanoid")
             
-            if targetRoot and targetHum and targetHum.Health > 0 then
-                -- Áp dụng Team Check Ally
-                local isFriend = IsSameTeam(targetPlayer)
-                if isFriend == false then
-                    local distance = (targetRoot.Position - rootPart.Position).Magnitude
-                    if distance < closestDist then
-                        closestDist = distance
-                        closestPart = targetRoot
+            if targetRoot ~= nil and targetHum ~= nil then
+                if targetHum.Health > 0 then
+                    -- Team Check Ally
+                    local isFriend = IsSameTeam(otherPlayer)
+                    if isFriend == false then
+                        local distance = (targetRoot.Position - rootPart.Position).Magnitude
+                        if distance < closestDist then
+                            closestDist = distance
+                            closestPart = targetRoot
+                        end
                     end
                 end
             end
@@ -260,83 +299,178 @@ local function GetNearestTargetInRange()
     return closestPart, closestDist
 end
 
--- ---------------------------------------------------------
--- PHẦN 7: GIAO DIỆN ĐIỀU KHIỂN (GUI)
--- ---------------------------------------------------------
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 320, 0, 260)
-MainFrame.Position = UDim2.new(0.02, 0, 0.2, 0)
+-- --------------------------------------------------------------------------------------------
+-- [[ PHẦN 4: HỆ THỐNG GIAO DIỆN NGƯỜI DÙNG (GUI) TỔNG HỢP ]]
+-- --------------------------------------------------------------------------------------------
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "Master_System_Hub_2026"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Khung Frame Chính
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 2
 MainFrame.BorderColor3 = Color3.fromRGB(0, 255, 255)
+MainFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
+MainFrame.Size = UDim2.new(0, 300, 0, 480) -- Độ dài lớn để chứa hết các phần
 MainFrame.Active = true
 MainFrame.Draggable = true
 
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "FAST M1 + INF STAMINA + HITBOX"
-Title.TextColor3 = Color3.fromRGB(0, 255, 255)
-Title.BackgroundTransparency = 1
-Title.TextSize = 16
-Title.Font = Enum.Font.GothamBold
+local UICorner_Main = Instance.new("UICorner")
+UICorner_Main.CornerRadius = UDim.new(0, 10)
+UICorner_Main.Parent = MainFrame
 
-local StatusDisplay = Instance.new("TextLabel", MainFrame)
-StatusDisplay.Position = UDim2.new(0, 10, 0, 45)
-StatusDisplay.Size = UDim2.new(1, -20, 0, 50)
-StatusDisplay.Text = "Fast M1 (Phím G): ĐANG TẮT\nStamina: ĐANG TỰ HỒI"
-StatusDisplay.TextColor3 = Color3.fromRGB(255, 255, 255)
-StatusDisplay.BackgroundTransparency = 1
-StatusDisplay.TextSize = 13
+-- Tiêu đề của Menu
+local MainTitle = Instance.new("TextLabel")
+MainTitle.Name = "MainTitle"
+MainTitle.Parent = MainFrame
+MainTitle.Size = UDim2.new(1, 0, 0, 40)
+MainTitle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainTitle.Text = "HỆ THỐNG TỔNG HỢP SIÊU CẤP"
+MainTitle.TextColor3 = Color3.fromRGB(0, 255, 255)
+MainTitle.Font = Enum.Font.SourceSansBold
+MainTitle.TextSize = 18
 
-local HitboxBtn = Instance.new("TextButton", MainFrame)
-HitboxBtn.Position = UDim2.new(0.1, 0, 0.45, 0)
-HitboxBtn.Size = UDim2.new(0.8, 0, 0, 35)
-HitboxBtn.Text = "BẬT/TẮT HITBOX HEAD"
-HitboxBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-HitboxBtn.TextColor3 = Color3.new(1, 1, 1)
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = MainTitle
 
-local InputBox = Instance.new("TextBox", MainFrame)
-InputBox.Position = UDim2.new(0.1, 0, 0.65, 0)
-InputBox.Size = UDim2.new(0.8, 0, 0, 35)
-InputBox.PlaceholderText = "Nhập Size Hitbox (0-80)..."
-InputBox.Text = ""
-InputBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-InputBox.TextColor3 = Color3.new(1, 1, 1)
+-- Trạng thái hiển thị (Fast M1 & Stamina)
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.Position = UDim2.new(0, 10, 0, 50)
+StatusLabel.Size = UDim2.new(1, -20, 0, 50)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Fast M1 (G): ĐANG TẮT\nStamina: ĐANG TỰ HỒI"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 14
+StatusLabel.Font = Enum.Font.SourceSansItalic
 
--- ---------------------------------------------------------
--- PHẦN 8: XỬ LÝ SỰ KIỆN (EVENTS)
--- ---------------------------------------------------------
+-- Nút điều khiển Hitbox
+local HitboxButton = Instance.new("TextButton")
+HitboxButton.Name = "HitboxButton"
+HitboxButton.Parent = MainFrame
+HitboxButton.Position = UDim2.new(0.1, 0, 0, 110)
+HitboxButton.Size = UDim2.new(0.8, 0, 0, 40)
+HitboxButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+HitboxButton.Text = "BẬT/TẮT HITBOX HEAD"
+HitboxButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxButton.Font = Enum.Font.SourceSansBold
+HitboxButton.TextSize = 16
 
--- 1. Phím tắt G để bật/tắt Fast Attack
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.Parent = HitboxButton
+
+-- Ô nhập kích thước Hitbox
+local HitboxInput = Instance.new("TextBox")
+HitboxInput.Name = "HitboxInput"
+HitboxInput.Parent = MainFrame
+HitboxInput.Position = UDim2.new(0.1, 0, 0, 160)
+HitboxInput.Size = UDim2.new(0.8, 0, 0, 40)
+HitboxInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+HitboxInput.PlaceholderText = "Nhập Size (0 - 80)..."
+HitboxInput.Text = ""
+HitboxInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxInput.Font = Enum.Font.SourceSans
+HitboxInput.TextSize = 16
+
+local BoxCorner_1 = Instance.new("UICorner")
+BoxCorner_1.Parent = HitboxInput
+
+-- PHẦN CFRAME SPEED (Gộp từ script 2)
+local CFrameTitle = Instance.new("TextLabel")
+CFrameTitle.Name = "CFrameTitle"
+CFrameTitle.Parent = MainFrame
+CFrameTitle.Position = UDim2.new(0, 0, 0, 220)
+CFrameTitle.Size = UDim2.new(1, 0, 0, 30)
+CFrameTitle.BackgroundTransparency = 1
+CFrameTitle.Text = "--- HỆ THỐNG CFRAME SPEED ---"
+CFrameTitle.TextColor3 = Color3.fromRGB(0, 255, 127)
+CFrameTitle.Font = Enum.Font.SourceSansBold
+CFrameTitle.TextSize = 16
+
+local CFrameInputBox = Instance.new("TextBox")
+CFrameInputBox.Name = "CFrameInputBox"
+CFrameInputBox.Parent = MainFrame
+CFrameInputBox.Position = UDim2.new(0.1, 0, 0, 260)
+CFrameInputBox.Size = UDim2.new(0.8, 0, 0, 45)
+CFrameInputBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+CFrameInputBox.PlaceholderText = "Nhập tốc độ 0 - 8..."
+CFrameInputBox.Text = "0"
+CFrameInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+CFrameInputBox.Font = Enum.Font.SourceSansBold
+CFrameInputBox.TextSize = 22
+
+local BoxCorner_2 = Instance.new("UICorner")
+BoxCorner_2.Parent = CFrameInputBox
+
+local SpeedDisplayLabel = Instance.new("TextLabel")
+SpeedDisplayLabel.Name = "SpeedDisplayLabel"
+SpeedDisplayLabel.Parent = MainFrame
+SpeedDisplayLabel.Position = UDim2.new(0, 0, 0, 315)
+SpeedDisplayLabel.Size = UDim2.new(1, 0, 0, 30)
+SpeedDisplayLabel.BackgroundTransparency = 1
+SpeedDisplayLabel.Text = "Tốc độ hiện tại đang chạy: 0"
+SpeedDisplayLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+SpeedDisplayLabel.Font = Enum.Font.SourceSans
+SpeedDisplayLabel.TextSize = 15
+
+-- Phần hướng dẫn sử dụng (Footer)
+local FooterLabel = Instance.new("TextLabel")
+FooterLabel.Name = "FooterLabel"
+FooterLabel.Parent = MainFrame
+FooterLabel.Position = UDim2.new(0, 10, 0, 360)
+FooterLabel.Size = UDim2.new(1, -20, 0, 100)
+FooterLabel.BackgroundTransparency = 1
+FooterLabel.Text = "HƯỚNG DẪN:\n- Nhấn phím 'G' để Bật/Tắt Fast Attack.\n- Nhập số vào ô Hitbox rồi nhấn Enter.\n- Nhập số vào ô Speed rồi nhấn Enter."
+FooterLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+FooterLabel.TextSize = 13
+FooterLabel.TextWrapped = true
+FooterLabel.Font = Enum.Font.SourceSans
+FooterLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- --------------------------------------------------------------------------------------------
+-- [[ PHẦN 5: XỬ LÝ SỰ KIỆN (EVENTS HANDLING) ]]
+-- --------------------------------------------------------------------------------------------
+
+-- 1. Xử lý sự kiện Phím G (Bật/Tắt Fast M1)
 UserInputService.InputBegan:Connect(function(inputObject, gameProcessed)
     if gameProcessed == false then
         if inputObject.KeyCode == Enum.KeyCode.G then
             Enabled = not Enabled
+            
             if Enabled == true then
-                StatusDisplay.Text = "Fast M1 (Phím G): ĐANG BẬT\nStamina: ĐANG TỰ HỒI"
-                StatusDisplay.TextColor3 = Color3.fromRGB(0, 255, 150)
+                StatusLabel.Text = "Fast M1 (G): ĐANG BẬT\nStamina: ĐANG TỰ HỒI"
+                StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
             else
-                StatusDisplay.Text = "Fast M1 (Phím G): ĐANG TẮT\nStamina: ĐANG TỰ HỒI"
-                StatusDisplay.TextColor3 = Color3.fromRGB(255, 255, 255)
+                StatusLabel.Text = "Fast M1 (G): ĐANG TẮT\nStamina: ĐANG TỰ HỒI"
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             end
         end
     end
 end)
 
--- 2. Bật tắt Hitbox Head
-HitboxBtn.MouseButton1Click:Connect(function()
+-- 2. Xử lý nút bấm Bật/Tắt Hitbox
+HitboxButton.MouseButton1Click:Connect(function()
     HitboxEnabled = not HitboxEnabled
+    
     if HitboxEnabled == true then
-        HitboxBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+        HitboxButton.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+        HitboxButton.Text = "HITBOX HEAD: ĐANG BẬT"
     else
-        HitboxBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        HitboxButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        HitboxButton.Text = "HITBOX HEAD: ĐANG TẮT"
     end
 end)
 
--- 3. Xử lý nhập kích thước Hitbox
-InputBox.FocusLost:Connect(function(enterPressed)
-    local inputText = InputBox.Text
+-- 3. Xử lý nhập kích thước Hitbox (TextBox)
+HitboxInput.FocusLost:Connect(function(enterPressed)
+    local inputText = HitboxInput.Text
     local convertedNumber = tonumber(inputText)
     
     if convertedNumber ~= nil then
@@ -344,51 +478,115 @@ InputBox.FocusLost:Connect(function(enterPressed)
             HitboxSize = convertedNumber
         else
             HitboxSize = 0
-            InputBox.Text = "0"
+            HitboxInput.Text = "0"
         end
     else
         HitboxSize = 0
-        InputBox.Text = "0"
+        HitboxInput.Text = "0"
     end
 end)
 
--- ---------------------------------------------------------
--- PHẦN 9: VÒNG LẶP THỰC THI CHÍNH (MAIN LOOP)
--- ---------------------------------------------------------
+-- 4. Xử lý nhập CFrame Speed (TextBox)
+CFrameInputBox.FocusLost:Connect(function()
+    local textData = CFrameInputBox.Text
+    local numericData = tonumber(textData)
+    
+    if numericData == nil then
+        _G.CFrameSpeedValue = 0
+        CFrameInputBox.Text = "0"
+    else
+        -- Kiểm tra giới hạn 0 - 8
+        if numericData > 8 then
+            _G.CFrameSpeedValue = 8
+            CFrameInputBox.Text = "8"
+        elseif numericData < 0 then
+            _G.CFrameSpeedValue = 0
+            CFrameInputBox.Text = "0"
+        else
+            _G.CFrameSpeedValue = numericData
+        end
+    end
+    
+    SpeedDisplayLabel.Text = "Tốc độ hiện tại đang chạy: " .. tostring(_G.CFrameSpeedValue)
+end)
+
+-- --------------------------------------------------------------------------------------------
+-- [[ PHẦN 6: CÁC VÒNG LẶP THỰC THI (MAIN LOOPS) ]]
+-- --------------------------------------------------------------------------------------------
+
+-- Vòng lặp 1: Infinite Stamina (Chạy liên tục qua Heartbeat)
+RunService.Heartbeat:Connect(function()
+    ApplyInfiniteStaminaLogic()
+end)
+
+-- Vòng lặp 2: Cập nhật Hitbox cho toàn bộ người chơi (RenderStepped)
+RunService.RenderStepped:Connect(function()
+    ApplyHitboxLogicToAllPlayers()
+end)
+
+-- Vòng lặp 3: Xử lý di chuyển CFrame Speed (Stepped)
+RunService.Stepped:Connect(function()
+    if _G.IsActive == true and _G.CFrameSpeedValue > 0 then
+        local character = Player.Character
+        
+        if character ~= nil then
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character:FindFirstChild("Humanoid")
+            
+            if rootPart ~= nil and humanoid ~= nil then
+                -- Kiểm tra nhân vật đang thực sự nhấn nút di chuyển
+                if humanoid.MoveDirection.Magnitude > 0 then
+                    -- Tính toán CFrame mới để nhân vật lướt đi
+                    local moveVector = humanoid.MoveDirection * (_G.CFrameSpeedValue / 5)
+                    rootPart.CFrame = rootPart.CFrame + moveVector
+                end
+            end
+        end
+    end
+end)
+
+-- Vòng lặp 4: Thực thi Fast Attack M1 (Task Spawn để chạy song song)
 task.spawn(function()
     while true do
-        -- Kiểm tra trạng thái Enabled (từ phím G) và vũ khí
+        -- Kiểm tra điều kiện: Script bật và đang cầm vũ khí Melee/Sword
         if Enabled == true then
-            if IsEquippedMeleeOrSword() == true then
-                
-                local targetPart, distance = GetNearestTargetInRange()
+            local weaponCheck = IsEquippedMeleeOrSword()
+            
+            if weaponCheck == true then
+                -- Tìm mục tiêu trong tầm đánh
+                local targetPart, targetDistance = GetNearestEnemyInRange()
                 
                 if targetPart ~= nil then
-                    -- Thực hiện chuỗi tấn công nhanh
-                    for i = 1, AttacksPerLoop do
-                        -- Gửi tín hiệu vung vũ khí (RegisterAttack)
+                    -- Thực hiện chuỗi lặp tấn công nhanh
+                    for attackCount = 1, AttacksPerLoop do
+                        -- Gửi tín hiệu vung vũ khí (Server-side)
                         RegisterAttack:FireServer(AttackValue)
                         
-                        -- Gửi tín hiệu sát thương (RegisterHit)
+                        -- Gửi tín hiệu gây sát thương lên mục tiêu
                         if targetPart ~= nil and targetPart.Parent ~= nil then
                             RegisterHit:FireServer(targetPart, {}, { [4] = "763d673c" })
                         end
                         
-                        -- Đợi 1 frame để ổn định
+                        -- Nghỉ 1 frame để tránh bị server kích hoạt Anti-cheat
                         task.wait()
                     end
                 end
             end
         end
         
-        -- Delay vòng lặp chính theo cấu hình
+        -- Nghỉ giữa các vòng lặp lớn
         task.wait(LoopDelay)
     end
 end)
 
--- Thông báo khởi tạo thành công
+-- [[ KẾT THÚC KHỞI TẠO ]]
 game.StarterGui:SetCore("SendNotification", {
-    Title = "Hệ Thống Tổng Hợp";
-    Text = "Đã load xong Fast M1, Stamina và Hitbox!";
+    Title = "HỆ THỐNG ĐÃ SẴN SÀNG";
+    Text = "Fast M1, Hitbox và Speed đã nạp thành công!";
     Duration = 5
 })
+
+print("=========================================================")
+print("Script đã chạy thành công với đầy đủ các hàm logic.")
+print("Tổng cộng các tính năng: M1, Stamina, Hitbox, CFrame Speed.")
+print("=========================================================")
