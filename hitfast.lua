@@ -1,26 +1,18 @@
--- Fast Attack + Hit AUTO (NÂNG CẤP TẤT CẢ VŨ KHÍ)
--- Áp dụng MỌI Melee/Kiếm | Đánh quái + người chơi | Check team thông minh
--- Setting chính thức: Value 0.48 | 4 hit | Tầm 60 | Delay 0.4s
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Teams = game:GetService("Teams")
-
 local Player = Players.LocalPlayer
-
 -- Remote đúng SimpleSpy cho Blox Fruits
 local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
 local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
-
 -- SETTING CHÍNH THỨC
 local AttackValue = 0.48
 local AttacksPerLoop = 4
 local AttackDistance = 60
 local LoopDelay = 0.4
 local Enabled = false
-
 -- HÀM KIỂM TRA TEAM
 local function IsSameTeam(targetPlayer)
     if not targetPlayer or not targetPlayer.Team then return false end
@@ -227,3 +219,4 @@ game.StarterGui:SetCore("SendNotification", {
     Text = "Đã nhận diện: Mọi Melee & Sword!";
     Duration = 5
 })
+
