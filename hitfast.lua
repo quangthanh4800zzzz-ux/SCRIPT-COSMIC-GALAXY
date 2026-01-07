@@ -17,7 +17,7 @@ local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 -- SETTING CHÍNH THỨC
 local AttackValue = 0.48
 local AttacksPerLoop = 4
-local AttackDistance = 60
+local AttackDistance = 400
 local LoopDelay = 0.4
 local Enabled = false
 
@@ -226,4 +226,5 @@ game.StarterGui:SetCore("SendNotification", {
     Title = "Universal Fast Attack";
     Text = "Đã nhận diện: Mọi Melee & Sword!";
     Duration = 5
+
 })
