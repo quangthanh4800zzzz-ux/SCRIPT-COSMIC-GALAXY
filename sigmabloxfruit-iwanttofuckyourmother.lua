@@ -1,357 +1,344 @@
--- ============================================================================================
--- SCRIPT: TỔNG HỢP HỆ THỐNG BLOX FRUITS (MODERN UI EDITION 2026)
--- TÍNH NĂNG: FAST ATTACK M1 + INFINITE STAMINA + HITBOX BODY + CFRAME SPEED (MAX 40)
--- GIAO DIỆN: CHỮ TO, DỄ NHÌN, PHONG CÁCH NEON DARK
--- ============================================================================================
-
+-- [[ KHỞI TẠO DỊCH VỤ HỆ THỐNG ]]
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local Stats = game:GetService("Stats")
 
 local Player = Players.LocalPlayer
 
-local function ExecuteGalaxyIntro()
-    local IntroGui = Instance.new("ScreenGui")
-    IntroGui.Name = "IntroSystem"
-    IntroGui.DisplayOrder = 999
-    IntroGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    
-    local Background = Instance.new("Frame")
-    Background.Size = UDim2.new(1, 0, 1, 0)
-    Background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    Background.BorderSizePixel = 0
-    Background.Parent = IntroGui
-    
-    local MainTitle = Instance.new("TextLabel")
-    MainTitle.Size = UDim2.new(1, 0, 0, 150)
-    MainTitle.Position = UDim2.new(0, 0, 0.5, -75)
-    MainTitle.BackgroundTransparency = 1
-    MainTitle.Text = "THÀNH_ĐB"
-    MainTitle.Font = Enum.Font.GothamBold
-    MainTitle.TextSize = 120
-    MainTitle.TextTransparency = 1
-    MainTitle.Parent = Background
-    
-    task.spawn(function()
-        local Hue = 0
-        local TweenIn = TweenService:Create(MainTitle, TweenInfo.new(2, Enum.EasingStyle.Quart), {TextTransparency = 0})
-        TweenIn:Play()
-        
-        local RainbowEffect = RunService.RenderStepped:Connect(function() 
-            Hue = (Hue + 0.005) % 1
-            MainTitle.TextColor3 = Color3.fromHSV(Hue, 0.8, 1) 
-        end)
-        
-        task.wait(4)
-        
-        local TweenOutBg = TweenService:Create(Background, TweenInfo.new(1.5), {BackgroundTransparency = 1})
-        local TweenOutTxt = TweenService:Create(MainTitle, TweenInfo.new(1.5), {TextTransparency = 1})
-        TweenOutBg:Play()
-        TweenOutTxt:Play()
-        
-        task.wait(1.5)
-        RainbowEffect:Disconnect()
-        IntroGui:Destroy()
-    end)
-end
-ExecuteGalaxyIntro()
--- [[ BIẾN CẤU HÌNH ]]
+-- [[ BIẾN CẤU HÌNH TOÀN CỤC ]]
 _G.CFrameSpeedValue = 0 
+_G.MaxLimit = 40
 _G.IsActive = true
-local Enabled = false              
-local HitboxEnabled = false        
-local HitboxSize = 0               
-local CurrentTargetName = "None"   
-local OriginalBodySizes = {}
 
--- Remote Paths
-local NetFolder = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
-local RegisterAttack = NetFolder:WaitForChild("RE/RegisterAttack")
-local RegisterHit = NetFolder:WaitForChild("RE/RegisterHit")
+local FastAttackEnabled = false
+local HitboxActive = false
+local HitboxValue = 0
 
--- --------------------------------------------------------------------------------------------
--- [[ CÁC HÀM LOGIC - GIỮ NGUYÊN ]]
--- --------------------------------------------------------------------------------------------
+-- Remote chuẩn của Blox Fruits
+local RegisterAttack = ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
+local RegisterHit = ReplicatedStorage.Modules.Net["RE/RegisterHit"]
 
+-- SETTINGS GỐC
+local AttackValue = 0.1 
+local AttacksPerLoop = 4 
+local AttackDistance = 400
+
+-- [[ 1. TẠO GUI HIỂN THỊ FPS & PING (TÁCH BIỆT) ]]
+local InfoGui = Instance.new("ScreenGui", CoreGui)
+InfoGui.Name = "THANH_DB4800_INFO"
+
+local InfoFrame = Instance.new("Frame", InfoGui)
+InfoFrame.Size = UDim2.new(0, 120, 0, 50)
+InfoFrame.Position = UDim2.new(0, 10, 0, 10)
+InfoFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+InfoFrame.BackgroundTransparency = 0.3
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 6)
+local InfoStroke = Instance.new("UIStroke", InfoFrame)
+InfoStroke.Color = Color3.fromRGB(0, 255, 255)
+InfoStroke.Thickness = 1.5
+
+local FPSLabel = Instance.new("TextLabel", InfoFrame)
+FPSLabel.Size = UDim2.new(1, 0, 0.5, 0)
+FPSLabel.BackgroundTransparency = 1
+FPSLabel.Text = "FPS: 60"
+FPSLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+FPSLabel.Font = Enum.Font.GothamBold
+FPSLabel.TextSize = 12
+
+local PingLabel = Instance.new("TextLabel", InfoFrame)
+PingLabel.Size = UDim2.new(1, 0, 0.5, 0)
+PingLabel.Position = UDim2.new(0, 0, 0.5, 0)
+PingLabel.BackgroundTransparency = 1
+PingLabel.Text = "Ping: 0 ms"
+PingLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+PingLabel.Font = Enum.Font.GothamBold
+PingLabel.TextSize = 12
+
+local lastIteration = tick()
+local frameHistory = {}
+RunService.RenderStepped:Connect(function()
+    local now = tick()
+    local fps = 1 / (now - lastIteration)
+    lastIteration = now
+    table.insert(frameHistory, fps)
+    if #frameHistory > 60 then table.remove(frameHistory, 1) end
+    local avgFps = 0
+    for _, v in pairs(frameHistory) do avgFps += v end
+    avgFps /= #frameHistory
+    FPSLabel.Text = string.format("FPS: %d", math.floor(avgFps))
+    PingLabel.Text = string.format("Ping: %d ms", math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()))
+end)
+
+-- [[ 2. TẠO GIAO DIỆN NGƯỜI DÙNG CHÍNH (MAIN GUI) ]]
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
+ScreenGui.Name = "THANH_DB4800_HUB_PRO"
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.Position = UDim2.new(0.4, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 280, 0, 450)
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+local Stroke = Instance.new("UIStroke", MainFrame)
+Stroke.Color = Color3.fromRGB(0, 255, 255)
+Stroke.Thickness = 2
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Text = "PREMIUM BLOX HUB V3"
+Title.TextColor3 = Color3.fromRGB(0, 255, 255)
+Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18 
+
+local TargetLabel = Instance.new("TextLabel", MainFrame)
+TargetLabel.Position = UDim2.new(0.05, 0, 0.15, 0)
+TargetLabel.Size = UDim2.new(0.9, 0, 0, 40)
+TargetLabel.BackgroundColor3 = Color3.fromRGB(45, 20, 20)
+TargetLabel.Text = "TARGET: FAST M1 OFF"
+TargetLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+TargetLabel.Font = Enum.Font.GothamBold
+TargetLabel.TextSize = 14 
+Instance.new("UICorner", TargetLabel)
+
+local FastBtn = Instance.new("TextButton", MainFrame)
+FastBtn.Position = UDim2.new(0.05, 0, 0.27, 0)
+FastBtn.Size = UDim2.new(0.9, 0, 0, 40)
+FastBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+FastBtn.Text = "FAST ATTACK: OFF (G)"
+FastBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FastBtn.Font = Enum.Font.GothamBold
+FastBtn.TextSize = 14 
+Instance.new("UICorner", FastBtn)
+
+local SpeedInput = Instance.new("TextBox", MainFrame)
+SpeedInput.Position = UDim2.new(0.05, 0, 0.39, 0)
+SpeedInput.Size = UDim2.new(0.9, 0, 0, 40)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+SpeedInput.PlaceholderText = "NHẬP SPEED (0 - 40)"
+SpeedInput.Text = ""
+SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.Font = Enum.Font.GothamBold
+SpeedInput.TextSize = 14 
+Instance.new("UICorner", SpeedInput)
+
+local SpeedStatus = Instance.new("TextLabel", MainFrame)
+SpeedStatus.Position = UDim2.new(0, 0, 0.5, 0)
+SpeedStatus.Size = UDim2.new(1, 0, 0, 20)
+SpeedStatus.BackgroundTransparency = 1
+SpeedStatus.Text = "Tốc độ hiện tại: 0"
+SpeedStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
+SpeedStatus.TextSize = 14 
+
+local HitboxBtn = Instance.new("TextButton", MainFrame)
+HitboxBtn.Position = UDim2.new(0.05, 0, 0.58, 0)
+HitboxBtn.Size = UDim2.new(0.9, 0, 0, 40)
+HitboxBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+HitboxBtn.Text = "HITBOX BODY: OFF"
+HitboxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxBtn.Font = Enum.Font.GothamBold
+HitboxBtn.TextSize = 14 
+Instance.new("UICorner", HitboxBtn)
+
+local HitboxInput = Instance.new("TextBox", MainFrame)
+HitboxInput.Position = UDim2.new(0.05, 0, 0.7, 0)
+HitboxInput.Size = UDim2.new(0.9, 0, 0, 40)
+HitboxInput.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+HitboxInput.PlaceholderText = "HITBOX SIZE (0 - 80)"
+HitboxInput.Text = ""
+HitboxInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxInput.Font = Enum.Font.GothamBold
+HitboxInput.TextSize = 14 
+Instance.new("UICorner", HitboxInput)
+
+-- [[ PHẦN: INFINITE STAMINA ]]
 local function ApplyInfiniteStaminaLogic()
     local character = Player.Character
     if character then
-        local energy = character:FindFirstChild("Energy") or character:FindFirstChild("Stamina")
-        if energy then
-            local max = energy:FindFirstChild("MaxValue") or energy:FindFirstChild("MaxEnergy")
-            energy.Value = max and max.Value or 10000
+        local energyStat = character:FindFirstChild("Energy") or character:FindFirstChild("Stamina")
+        if energyStat then
+            local maxEnergy = energyStat:FindFirstChild("MaxValue") or energyStat:FindFirstChild("MaxEnergy")
+            if maxEnergy then
+                energyStat.Value = maxEnergy.Value
+            else
+                energyStat.Value = 10000000
+            end
         end
     end
 end
 
+-- [[ LOGIC HỆ THỐNG ]]
+
 local function IsSameTeam(targetPlayer)
-    if not targetPlayer or not targetPlayer.Team or not Player.Team then return false end
-    if Player.Team.Name == "Marines" and targetPlayer.Team.Name == "Marines" then return true end
-    if Player.Team.Name == "Pirates" and targetPlayer.Team.Name == "Pirates" then
-        if targetPlayer.Name == Player.Name then return true end
-        local isAlly = false
-        pcall(function()
-            if Player:IsFriendsWith(targetPlayer.UserId) then isAlly = true end
-            local myCrew = Player:FindFirstChild("Crew")
-            local tCrew = targetPlayer:FindFirstChild("Crew")
-            if myCrew and tCrew and myCrew.Value ~= "" and myCrew.Value == tCrew.Value then isAlly = true end
-        end)
-        return isAlly
+    if not targetPlayer or not targetPlayer.Team then return false end
+    local myTeam = Player.Team
+    if not myTeam then return false end
+    
+    if myTeam.Name == "Marines" then 
+        return targetPlayer.Team.Name == "Marines" 
+    end
+    
+    if myTeam.Name == "Pirates" then
+        if targetPlayer.Team.Name == "Marines" then return false end
+        if targetPlayer.Team.Name == "Pirates" then
+            if targetPlayer == Player then return true end
+            local status, isAlly = pcall(function()
+                return Player:IsFriendsWith(targetPlayer.UserId) or 
+                       (Player:FindFirstChild("Crew") and targetPlayer:FindFirstChild("Crew") and 
+                        Player.Crew.Value ~= "" and Player.Crew.Value == targetPlayer.Crew.Value)
+            end)
+            if status and isAlly then return true end
+            if targetPlayer.DisplayName == Player.DisplayName then return true end
+        end
     end
     return false
 end
 
 local function IsEquippedMeleeOrSword()
-    local tool = Player.Character and Player.Character:FindFirstChildOfClass("Tool")
+    if not Player.Character then return false end
+    local tool = Player.Character:FindFirstChildOfClass("Tool")
     if not tool then return false end
-    return tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or tool:FindFirstChild("Melee") or tool:FindFirstChild("Sword")
+    return tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or 
+           tool:FindFirstChild("Melee") or tool:FindFirstChild("Sword") or 
+           (tool:FindFirstChild("Handle") and (tool:FindFirstChild("Attack") or tool:FindFirstChild("Main")))
 end
 
-local function GetNearestEnemyInRange()
-    local closestPart, closestDist, foundName = nil, 400, "None"
-    local myRoot = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil, 0, "None" end
-
+local function GetNearestTargetInRange()
+    local closestPart, closestDist = nil, AttackDistance
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
     local enemies = Workspace:FindFirstChild("Enemies")
     if enemies then
-        for _, enemy in pairs(enemies:GetChildren()) do
-            local eRoot = enemy:FindFirstChild("HumanoidRootPart")
-            if eRoot and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                local dist = (eRoot.Position - myRoot.Position).Magnitude
-                if dist < closestDist then closestDist, closestPart, foundName = dist, eRoot, enemy.Name end
-            end
-        end
-    end
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= Player and p.Character then
-            local pRoot = p.Character:FindFirstChild("HumanoidRootPart")
-            if pRoot and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 and not IsSameTeam(p) then
-                local dist = (pRoot.Position - myRoot.Position).Magnitude
-                if dist < closestDist then closestDist, closestPart, foundName = dist, pRoot, p.DisplayName or p.Name end
-            end
-        end
-    end
-    return closestPart, closestDist, foundName
-end
-
--- --------------------------------------------------------------------------------------------
--- [[ GIAO DIỆN NGƯỜI DÙNG (MODERN UI) ]]
--- --------------------------------------------------------------------------------------------
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NeonHub_2026"
-ScreenGui.Parent = CoreGui
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.35, 0, 0.2, 0)
-MainFrame.Size = UDim2.new(0, 350, 0, 580) -- Rộng hơn để chữ to hơn
-MainFrame.Active = true
-MainFrame.Draggable = true
-
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 15)
-MainCorner.Parent = MainFrame
-
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Thickness = 2
-UIStroke.Color = Color3.fromRGB(0, 255, 255)
-UIStroke.Parent = MainFrame
-
--- Tiêu đề (To, Đậm)
-local Title = Instance.new("TextLabel")
-Title.Parent = MainFrame
-Title.Size = UDim2.new(1, 0, 0, 60)
-Title.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-Title.Text = "THANH_DB4800____HUB"
-Title.TextColor3 = Color3.fromRGB(0, 255, 255)
-Title.TextSize = 24
-Title.Font = Enum.Font.GothamBold
-
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 15)
-TitleCorner.Parent = Title
-
--- Nhãn Hiển Thị Target (Nổi bật)
-local TargetLabel = Instance.new("TextLabel")
-TargetLabel.Parent = MainFrame
-TargetLabel.Position = UDim2.new(0.05, 0, 0, 75)
-TargetLabel.Size = UDim2.new(0.9, 0, 0, 50)
-TargetLabel.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
-TargetLabel.Text = "TARGET: NONE"
-TargetLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-TargetLabel.TextSize = 18
-TargetLabel.Font = Enum.Font.GothamBold
-
-local TargetCorner = Instance.new("UICorner")
-TargetCorner.Parent = TargetLabel
-
--- Nút Fast Attack
-local AttackBtn = Instance.new("TextButton")
-AttackBtn.Parent = MainFrame
-AttackBtn.Position = UDim2.new(0.05, 0, 0, 140)
-AttackBtn.Size = UDim2.new(0.9, 0, 0, 50)
-AttackBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-AttackBtn.Text = "FAST ATTACK: OFF (G)"
-AttackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AttackBtn.TextSize = 18
-AttackBtn.Font = Enum.Font.GothamMedium
-
-local BtnCorner1 = Instance.new("UICorner")
-BtnCorner1.Parent = AttackBtn
-
--- Phần Speed
-local SpeedBox = Instance.new("TextBox")
-SpeedBox.Parent = MainFrame
-SpeedBox.Position = UDim2.new(0.05, 0, 0, 210)
-SpeedBox.Size = UDim2.new(0.9, 0, 0, 50)
-SpeedBox.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-SpeedBox.PlaceholderText = "NHẬP SPEED (0 - 40)"
-SpeedBox.Text = ""
-SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 0)
-SpeedBox.TextSize = 20
-SpeedBox.Font = Enum.Font.GothamBold
-
-local SpeedCorner = Instance.new("UICorner")
-SpeedCorner.Parent = SpeedBox
-
-local SpeedInfo = Instance.new("TextLabel")
-SpeedInfo.Parent = MainFrame
-SpeedInfo.Position = UDim2.new(0, 0, 0, 265)
-SpeedInfo.Size = UDim2.new(1, 0, 0, 20)
-SpeedInfo.BackgroundTransparency = 1
-SpeedInfo.Text = "Current Speed: 0"
-SpeedInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-SpeedInfo.TextSize = 14
-
--- Phần Hitbox
-local HitboxBtn = Instance.new("TextButton")
-HitboxBtn.Parent = MainFrame
-HitboxBtn.Position = UDim2.new(0.05, 0, 0, 300)
-HitboxBtn.Size = UDim2.new(0.9, 0, 0, 50)
-HitboxBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-HitboxBtn.Text = "HITBOX BODY: OFF"
-HitboxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-HitboxBtn.TextSize = 18
-HitboxBtn.Font = Enum.Font.GothamMedium
-
-local BtnCorner2 = Instance.new("UICorner")
-BtnCorner2.Parent = HitboxBtn
-
-local HitboxSizeInp = Instance.new("TextBox")
-HitboxSizeInp.Parent = MainFrame
-HitboxSizeInp.Position = UDim2.new(0.05, 0, 0, 370)
-HitboxSizeInp.Size = UDim2.new(0.9, 0, 0, 50)
-HitboxSizeInp.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-HitboxSizeInp.PlaceholderText = "HITBOX SIZE (0-80)"
-HitboxSizeInp.Text = ""
-HitboxSizeInp.TextColor3 = Color3.fromRGB(0, 255, 100)
-HitboxSizeInp.TextSize = 20
-
-local HitCorner = Instance.new("UICorner")
-HitCorner.Parent = HitboxSizeInp
-
--- Chú thích dưới cùng
-local Footer = Instance.new("TextLabel")
-Footer.Parent = MainFrame
-Footer.Position = UDim2.new(0.05, 0, 0, 440)
-Footer.Size = UDim2.new(0.9, 0, 0, 120)
-Footer.BackgroundTransparency = 1
-Footer.Text = "HƯỚNG DẪN:\n1. Phím nóng Fast Attack bằng phím G.\n2. Speed tối đa 40.\n3. Hitbox Body:Giúp tăng HITBOX Player "
-Footer.TextColor3 = Color3.fromRGB(150, 150, 150)
-Footer.TextSize = 16
-Footer.TextWrapped = true
-Footer.TextXAlignment = Enum.TextXAlignment.Left
-
--- --------------------------------------------------------------------------------------------
--- [[ XỬ LÝ SỰ KIỆN & VÒNG LẶP ]]
--- --------------------------------------------------------------------------------------------
-
-SpeedBox.FocusLost:Connect(function()
-    local val = tonumber(SpeedBox.Text)
-    _G.CFrameSpeedValue = (val and math.clamp(val, 0, 40)) or 0
-    SpeedBox.Text = tostring(_G.CFrameSpeedValue)
-    SpeedInfo.Text = "Current Speed: " .. SpeedBox.Text
-end)
-
-UserInputService.InputBegan:Connect(function(io, p)
-    if not p and io.KeyCode == Enum.KeyCode.G then
-        Enabled = not Enabled
-        AttackBtn.Text = Enabled and "FAST ATTACK: ON (G)" or "FAST ATTACK: OFF (G)"
-        AttackBtn.BackgroundColor3 = Enabled and Color3.fromRGB(0, 100, 50) or Color3.fromRGB(40, 40, 45)
-    end
-end)
-
-HitboxBtn.MouseButton1Click:Connect(function()
-    HitboxEnabled = not HitboxEnabled
-    HitboxBtn.Text = HitboxEnabled and "HITBOX BODY: ON" or "HITBOX BODY: OFF"
-    HitboxBtn.BackgroundColor3 = HitboxEnabled and Color3.fromRGB(0, 80, 150) or Color3.fromRGB(40, 40, 45)
-end)
-
-HitboxSizeInp.FocusLost:Connect(function()
-    local n = tonumber(HitboxSizeInp.Text)
-    HitboxSize = (n and math.clamp(n, 0, 80)) or 0
-    HitboxSizeInp.Text = tostring(HitboxSize)
-end)
-
--- Loops
-RunService.Heartbeat:Connect(ApplyInfiniteStaminaLogic)
-
-RunService.RenderStepped:Connect(function()
-    for _, tp in pairs(Players:GetPlayers()) do
-        if tp ~= Player and tp.Character then
-            local root = tp.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                if not IsSameTeam(tp) and HitboxEnabled then
-                    if not OriginalBodySizes[tp.UserId] then OriginalBodySizes[tp.UserId] = root.Size end
-                    root.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                    root.Transparency = 0.7
-                    root.CanCollide = false
-                elseif OriginalBodySizes[tp.UserId] then
-                    root.Size = OriginalBodySizes[tp.UserId]
-                    root.Transparency = 1
-                    root.CanCollide = true
+        for _, v in pairs(enemies:GetChildren()) do
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            if hrp and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                local dist = (hrp.Position - root.Position).Magnitude
+                if dist < closestDist then 
+                    closestDist = dist
+                    closestPart = hrp 
                 end
             end
         end
     end
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+            -- Thêm kiểm tra IsFriendsWith để Fast Attack không tự động nhắm vào bạn bè
+            if p.Character.Humanoid.Health > 0 and not IsSameTeam(p) and not Player:IsFriendsWith(p.UserId) then
+                local dist = (p.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                if dist < closestDist then 
+                    closestDist = dist
+                    closestPart = p.Character.HumanoidRootPart 
+                end
+            end
+        end
+    end
+    return closestPart
+end
+
+-- [[ VÒNG LẶP FAST ATTACK TỐC ĐỘ CAO ]]
+task.spawn(function()
+    while true do
+        if FastAttackEnabled and IsEquippedMeleeOrSword() then
+            local target = GetNearestTargetInRange()
+            if target then
+                for i = 1, AttacksPerLoop do
+                    RegisterAttack:FireServer(AttackValue)
+                    if target and target.Parent then 
+                        RegisterHit:FireServer(target, {}, { [4] = "763d673c" }) 
+                    end
+                end
+            end
+        end
+        task.wait() 
+    end
+end)
+
+-- VÒNG LẶP HEARTBEAT
+RunService.Heartbeat:Connect(function()
+    ApplyInfiniteStaminaLogic()
+    if FastAttackEnabled then
+        local target = GetNearestTargetInRange()
+        if target then
+            TargetLabel.Text = "TARGET: " .. target.Parent.Name:upper()
+            TargetLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+        else
+            TargetLabel.Text = "ĐANG ĐỢI MỤC TIÊU..."
+            TargetLabel.TextColor3 = Color3.fromRGB(0, 191, 255)
+        end
+    end
+end)
+
+-- Logic Speed CFrame
+SpeedInput.FocusLost:Connect(function()
+    local num = tonumber(SpeedInput.Text)
+    if num then _G.CFrameSpeedValue = math.clamp(num, 0, _G.MaxLimit) else _G.CFrameSpeedValue = 0 end
+    SpeedInput.Text = tostring(_G.CFrameSpeedValue)
+    SpeedStatus.Text = "Tốc độ hiện tại: " .. tostring(_G.CFrameSpeedValue)
 end)
 
 RunService.Stepped:Connect(function()
-    if _G.IsActive and _G.CFrameSpeedValue > 0 then
-        local c = Player.Character
-        if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("Humanoid") then
-            if c.Humanoid.MoveDirection.Magnitude > 0 then
-                c.HumanoidRootPart.CFrame = c.HumanoidRootPart.CFrame + (c.Humanoid.MoveDirection * (_G.CFrameSpeedValue / 4))
+    if _G.IsActive and _G.CFrameSpeedValue > 0 and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") then
+        if Player.Character.Humanoid.MoveDirection.Magnitude > 0 then
+            Player.Character.HumanoidRootPart.CFrame += (Player.Character.Humanoid.MoveDirection * (_G.CFrameSpeedValue / 10))
+        end
+    end
+end)
+
+-- Logic Hitbox Body (Đã chặn áp dụng lên Bạn bè)
+HitboxInput.FocusLost:Connect(function()
+    local num = tonumber(HitboxInput.Text)
+    HitboxValue = (num and num >= 0 and num <= 80) and num or 0
+    HitboxInput.Text = tostring(HitboxValue)
+end)
+
+RunService.RenderStepped:Connect(function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = p.Character.HumanoidRootPart
+            
+            -- KIỂM TRA ĐIỀU KIỆN HITBOX: Bật + Có giá trị + Không phải bạn bè
+            local isFriend = Player:IsFriendsWith(p.UserId)
+            
+            if HitboxActive and HitboxValue > 0 and not isFriend then
+                hrp.Size = Vector3.new(HitboxValue, HitboxValue, HitboxValue)
+                hrp.Transparency = 0.6
+                hrp.Color = Color3.fromRGB(255, 0, 0)
+                hrp.Material = Enum.Material.Neon
+                hrp.CanCollide = false
+            else
+                -- Nếu là bạn bè hoặc tắt Hitbox, trả về kích thước gốc
+                hrp.Size = Vector3.new(2, 2, 1)
+                hrp.Transparency = 1
             end
         end
     end
 end)
 
-task.spawn(function()
-    while true do
-        if Enabled then
-            if IsEquippedMeleeOrSword() then
-                local part, dist, name = GetNearestEnemyInRange()
-                TargetLabel.Text = "TARGET: " .. string.upper(name)
-                if part then
-                    for i = 1, 4 do
-                        RegisterAttack:FireServer(0.48)
-                        if part and part.Parent then RegisterHit:FireServer(part, {}, { [4] = "763d673c" }) end
-                        task.wait()
-                    end
-                end
-            else TargetLabel.Text = "TARGET: NEED WEAPON" end
-        else TargetLabel.Text = "TARGET: FAST M1 OFF" end
-        task.wait(0.4)
+-- Điều khiển GUI
+local function ToggleFast()
+    FastAttackEnabled = not FastAttackEnabled
+    FastBtn.Text = FastAttackEnabled and "FAST ATTACK: ON (G)" or "FAST ATTACK: OFF (G)"
+    FastBtn.BackgroundColor3 = FastAttackEnabled and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(35, 35, 35)
+    if not FastAttackEnabled then 
+        TargetLabel.Text = "TARGET: FAST M1 OFF" 
+        TargetLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     end
+end
+
+FastBtn.MouseButton1Click:Connect(ToggleFast)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.G then ToggleFast() end
 end)
 
-print("LETHOSO.NET")
-
+HitboxBtn.MouseButton1Click:Connect(function()
+    HitboxActive = not HitboxActive
+    HitboxBtn.Text = HitboxActive and "HITBOX: BẬT" or "HITBOX: TẮT"
+    HitboxBtn.BackgroundColor3 = HitboxActive and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+end)
