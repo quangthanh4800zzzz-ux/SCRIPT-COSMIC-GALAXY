@@ -19,7 +19,7 @@ local IconModule = {
     IconThemeTag = nil,  
       
     Icons = {  
-        lucide = loadstring(Get("https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua"))(),
+        lucide = loadstring(Get("https://raw.githubusercontent.com/quangthanh4800zzzz-ux/SCRIPT-COSMIC-GALAXY/main/Icons.lua"))(),
     }
 }  
   
