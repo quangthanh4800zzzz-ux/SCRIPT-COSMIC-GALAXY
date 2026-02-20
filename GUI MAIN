@@ -5,7 +5,7 @@ local f=game:GetService"TweenService"
 local g=game:GetService"LocalizationService"
 local h=game:GetService"HttpService"
 
-local i="https://raw.githubusercontent.com/quangthanh4800zzzz-ux/SCRIPT-COSMIC-GALAXY/main/Icons.lua"
+local i="https://raw.githubusercontent.com/Footagesus/Icons/main/Main-v2.lua"
 
 local j=loadstring(
 game.HttpGetAsync and game:HttpGetAsync(i)
