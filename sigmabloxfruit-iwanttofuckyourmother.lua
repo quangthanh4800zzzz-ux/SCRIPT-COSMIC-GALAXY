@@ -1,8 +1,5 @@
 -- [[ COSMIC HUB ULTIMATE - MERGED EDITION ]]
--- [[ KẾT HỢP: COSMIC HUB + FARM MOB TỐI ƯU + ULTRA FPS BOOST ]]
--- [[ PHIÊN BẢN REMASTERED: GALAXY UI & LOGIC UPGRADE ]]
--- [[ FAST ATTACK UPGRADE: MULTI-TARGET (2 CLOSEST) + COOLDOWN SYSTEM ]]
--- Updated: 2026-02-21
+-- Updated: 2026-08-9 (BỔ SUNG ESP FULL & FULLBRIGHT ULTRA FPS BOOST)
 
 -- [[ KHỞI TẠO DỊCH VỤ HỆ THỐNG ]]
 local CoreGui = game:GetService("CoreGui")
@@ -24,9 +21,9 @@ local Camera = Workspace.CurrentCamera
 
 -- [[ BIẾN CẤU HÌNH TOÀN CỤC (GLOBAL SETTINGS - COSMIC HUB) ]]
 _G.CFrameSpeedValue = 0 
-_G.MaxLimit = 5000 
+_G.MaxLimit = 480000 
 _G.JumpPowerValue = 0
-_G.MaxJumpLimit = 500
+_G.MaxJumpLimit = 4800
 _G.IsActive = true
 
 -- Teleport Settings
@@ -66,6 +63,22 @@ _G.FarmSettings = {
 local currentFarmTween = nil
 local targetFarmMob = nil
 local mobToBringList = {} -- Danh sách quái cùng loại đã lọc
+
+-- [[ BIẾN CẤU HÌNH ESP (UPDATE MỚI) ]]
+if CoreGui:FindFirstChild("COSMIC_ESP_FOLDER") then
+    CoreGui:FindFirstChild("COSMIC_ESP_FOLDER"):Destroy()
+end
+local ESPFolder = Instance.new("Folder", CoreGui)
+ESPFolder.Name = "COSMIC_ESP_FOLDER"
+
+_G.ESPSettings = {
+    Enabled = false,
+    ShowLevel = true,
+    ShowDistance = true,
+    ShowHealth = true,
+    HealthMode = "Percent", -- Các chế độ: "Percent" (Phần trăm) hoặc "Integer" (Số nguyên)
+    ShowBounty = true
+}
 
 -- [[ HÀM TIỆN ÍCH HỆ THỐNG ]]
 
@@ -435,7 +448,7 @@ local function createPage(name)
     page.BackgroundTransparency = 1
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = Color3.fromRGB(170, 0, 255)
-    page.CanvasSize = UDim2.new(0, 0, 2.0, 0) -- Auto adjust sau
+    page.CanvasSize = UDim2.new(0, 0, 2.5, 0) -- Auto adjust Canvas size to be bigger
     page.Visible = false -- Mặc định ẩn
     page.Position = UDim2.new(1, 0, 0, 0) -- Để ở ngoài bên phải để chuẩn bị slide vào
     
@@ -471,7 +484,7 @@ local function SwitchTab(targetPage, targetBtn)
     
     -- Animation Button Cũ
     TweenService:Create(currentTabBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(20, 20, 20), TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
-    -- Xóa Gradient cũ nếu có (bằng cách destroy con của nó nếu cần, nhưng ở đây ta chỉ đổi màu nền)
+    -- Xóa Gradient cũ nếu có
     local oldGrad = currentTabBtn:FindFirstChildOfClass("UIGradient")
     if oldGrad then oldGrad:Destroy() end
 
@@ -809,12 +822,12 @@ TeleBtnStroke.Color = Color3.fromRGB(0, 255, 255)
 TeleBtnStroke.Thickness = 1.5
 AnimateButtonHover(TeleportBtn)
 
--- [[ TAB 4: FPS BOOST (ULTRA DEEP) ]]
+-- [[ TAB 4: FPS BOOST (ULTRA DEEP) + ESP (UPDATE MỚI) ]]
 
 local UltraBoostBtn = Instance.new("TextButton", FPSPage)
 UltraBoostBtn.Size = UDim2.new(0.9, 0, 0, 60)
 UltraBoostBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 200)
-UltraBoostBtn.Text = "ACTIVATE ULTRA FPS BOOST\n(NO FOG / NO EFFECTS / CLEAR)"
+UltraBoostBtn.Text = "ACTIVATE ULTRA FPS BOOST\n(+ FULLBRIGHT & CLEAR)"
 UltraBoostBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 UltraBoostBtn.Font = Enum.Font.GothamBlack
 UltraBoostBtn.TextSize = 14
@@ -824,13 +837,163 @@ AddGalaxyGradient(UltraBoostBtn)
 local FPSNote = Instance.new("TextLabel", FPSPage)
 FPSNote.Size = UDim2.new(0.9, 0, 0, 40)
 FPSNote.BackgroundTransparency = 1
-FPSNote.Text = "Warning: Removes almost all visuals. Does NOT lower render distance. Keeps game play smooth."
+FPSNote.Text = "Warning: Removes visual effects and applies smooth, eye-friendly Fullbright. High FPS impact."
 FPSNote.TextColor3 = Color3.fromRGB(150, 150, 150)
 FPSNote.Font = Enum.Font.Gotham
 FPSNote.TextSize = 10
 FPSNote.TextWrapped = true
 
+-- PHẦN ESP TRONG FPS PAGE (TÍCH HỢP GIAO DIỆN)
+local ESPSeparator = Instance.new("Frame", FPSPage)
+ESPSeparator.Size = UDim2.new(1, 0, 0, 2)
+ESPSeparator.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
+ESPSeparator.BorderSizePixel = 0
+
+local ESPToggleBtn = Instance.new("TextButton", FPSPage)
+ESPToggleBtn.Size = UDim2.new(0.9, 0, 0, 50)
+ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ESPToggleBtn.Text = "ESP PLAYER: OFF"
+ESPToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPToggleBtn.Font = Enum.Font.GothamBlack
+ESPToggleBtn.TextSize = 16
+Instance.new("UICorner", ESPToggleBtn).CornerRadius = UDim.new(0, 10)
+AnimateButtonHover(ESPToggleBtn)
+
+-- Container cài đặt ESP (Sẽ xuất hiện khi bật ESP)
+local ESPContainer = Instance.new("Frame", FPSPage)
+ESPContainer.Size = UDim2.new(0.9, 0, 0, 0) -- Chiều cao ban đầu 0 để ẩn
+ESPContainer.BackgroundColor3 = Color3.fromRGB(20, 10, 40)
+ESPContainer.ClipsDescendants = true
+Instance.new("UICorner", ESPContainer).CornerRadius = UDim.new(0, 10)
+
+local ESPListLayout = Instance.new("UIListLayout", ESPContainer)
+ESPListLayout.Padding = UDim.new(0, 5)
+ESPListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ESPListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local ESPPad = Instance.new("UIPadding", ESPContainer)
+ESPPad.PaddingTop = UDim.new(0, 10)
+
+-- Các chức năng ESP trong Container
+local function CreateESPOptionBtn(text, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 20, 60)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(0, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local ESPLevelBtn = CreateESPOptionBtn("SHOW LEVEL: ON", ESPContainer)
+local ESPDistanceBtn = CreateESPOptionBtn("SHOW DISTANCE: ON", ESPContainer)
+local ESPHealthBtn = CreateESPOptionBtn("SHOW HEALTH: ON", ESPContainer)
+local ESPHealthModeBtn = CreateESPOptionBtn("HP MODE: PERCENT (%)", ESPContainer)
+local ESPBountyBtn = CreateESPOptionBtn("SHOW BOUNTY: ON", ESPContainer)
+
+
 -- [[ LOGIC HỆ THỐNG (SYSTEM LOGIC) ]]
+
+-- 0. MODULE: ESP HỆ THỐNG LOGIC DRAWING (UPDATE MỚI TẠO BỞI YÊU CẦU CỦA BẠN)
+RunService.RenderStepped:Connect(function()
+    if not _G.ESPSettings.Enabled then
+        for _, v in pairs(ESPFolder:GetChildren()) do v:Destroy() end
+        return
+    end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local char = p.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                
+                -- Tạo Billboard Nếu Chưa Có
+                local bb = ESPFolder:FindFirstChild(p.Name)
+                if not bb then
+                    bb = Instance.new("BillboardGui")
+                    bb.Name = p.Name
+                    bb.Parent = ESPFolder
+                    bb.Adornee = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    bb.Size = UDim2.new(0, 200, 0, 50)
+                    bb.StudsOffset = Vector3.new(0, 2.5, 0)
+                    bb.AlwaysOnTop = true
+                    
+                    local textLabel = Instance.new("TextLabel", bb)
+                    textLabel.Size = UDim2.new(1, 0, 1, 0)
+                    textLabel.BackgroundTransparency = 1
+                    textLabel.TextStrokeTransparency = 0 -- Có viền viền đen
+                    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+                    textLabel.Font = Enum.Font.GothamBold
+                    textLabel.TextSize = 13
+                    textLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+                end
+                
+                -- Build Text Label theo Cấu Hình
+                local ESPText = p.DisplayName or p.Name
+                
+                if _G.ESPSettings.ShowLevel then
+                    local pData = p:FindFirstChild("Data")
+                    local pLvl = pData and pData:FindFirstChild("Level")
+                    if pLvl then
+                        ESPText = ESPText .. "\n[Lv. " .. tostring(pLvl.Value) .. "]"
+                    end
+                end
+                
+                if _G.ESPSettings.ShowHealth then
+                    local hp = char.Humanoid.Health
+                    local maxHp = char.Humanoid.MaxHealth
+                    if _G.ESPSettings.HealthMode == "Percent" then
+                        local pct = math.floor((hp/maxHp) * 100)
+                        ESPText = ESPText .. "\n[HP: " .. tostring(pct) .. "%]"
+                    else
+                        ESPText = ESPText .. "\n[HP: " .. math.floor(hp) .. "/" .. math.floor(maxHp) .. "]"
+                    end
+                end
+                
+                if _G.ESPSettings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude / 3) -- Đổi sang hệ mét
+                    ESPText = ESPText .. "\n[" .. tostring(dist) .. "m]"
+                end
+                
+                if _G.ESPSettings.ShowBounty then
+                    local leader = p:FindFirstChild("leaderstats")
+                    local bounty = leader and leader:FindFirstChild("Bounty/Honor")
+                    if bounty then
+                        -- Hàm parse bounty format (vd: 2.5M)
+                        local rawValue = tonumber(bounty.Value)
+                        local formatted = tostring(bounty.Value)
+                        if rawValue then
+                            if rawValue >= 1000000 then
+                                formatted = string.format("%.1fM", rawValue/1000000)
+                            elseif rawValue >= 1000 then
+                                formatted = string.format("%.1fK", rawValue/1000)
+                            end
+                        end
+                        ESPText = ESPText .. "\n[$: " .. formatted .. "]"
+                    end
+                end
+                
+                -- Tùy chỉnh màu sắc tùy phe/địch
+                if IsFriendOrAlly(p) then
+                    bb.TextLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+                else
+                    bb.TextLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+                end
+                
+                bb.TextLabel.Text = ESPText
+            else
+                -- Cleanup nếu Player chết
+                local bb = ESPFolder:FindFirstChild(p.Name)
+                if bb then bb:Destroy() end
+            end
+        end
+    end
+    -- Dọn rác Player rời game
+    for _, child in pairs(ESPFolder:GetChildren()) do
+        if not Players:FindFirstChild(child.Name) then child:Destroy() end
+    end
+end)
+
 
 -- 1. Xử lý Logic Movement Tween cho Farm (Từ Farm Mob script)
 local function handleFarmMove(mob)
@@ -1222,19 +1385,78 @@ TeleportBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ULTRA FPS BOOST BUTTON
+-- BẢNG SỰ KIỆN NÚT BẤM CHO ESP (UPDATE MỚI)
+ESPToggleBtn.MouseButton1Click:Connect(function()
+    _G.ESPSettings.Enabled = not _G.ESPSettings.Enabled
+    ESPToggleBtn.Text = _G.ESPSettings.Enabled and "ESP PLAYER: ON" or "ESP PLAYER: OFF"
+    if _G.ESPSettings.Enabled then
+        TweenService:Create(ESPToggleBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(0, 180, 50)}):Play()
+        -- Kéo dãn bảng cài đặt ESP ra (Total height: 5 elements * 40 + paddings = ~240)
+        TweenService:Create(ESPContainer, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0.9, 0, 0, 240)
+        }):Play()
+    else
+        TweenService:Create(ESPToggleBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(200, 50, 50)}):Play()
+        -- Thu bé ẩn đi
+        TweenService:Create(ESPContainer, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0.9, 0, 0, 0)
+        }):Play()
+    end
+end)
+
+ESPLevelBtn.MouseButton1Click:Connect(function()
+    _G.ESPSettings.ShowLevel = not _G.ESPSettings.ShowLevel
+    ESPLevelBtn.Text = _G.ESPSettings.ShowLevel and "SHOW LEVEL: ON" or "SHOW LEVEL: OFF"
+    TweenService:Create(ESPLevelBtn, TweenInfo.new(0.2), {BackgroundColor3 = _G.ESPSettings.ShowLevel and Color3.fromRGB(30, 20, 60) or Color3.fromRGB(60, 20, 20)}):Play()
+end)
+
+ESPDistanceBtn.MouseButton1Click:Connect(function()
+    _G.ESPSettings.ShowDistance = not _G.ESPSettings.ShowDistance
+    ESPDistanceBtn.Text = _G.ESPSettings.ShowDistance and "SHOW DISTANCE: ON" or "SHOW DISTANCE: OFF"
+    TweenService:Create(ESPDistanceBtn, TweenInfo.new(0.2), {BackgroundColor3 = _G.ESPSettings.ShowDistance and Color3.fromRGB(30, 20, 60) or Color3.fromRGB(60, 20, 20)}):Play()
+end)
+
+ESPHealthBtn.MouseButton1Click:Connect(function()
+    _G.ESPSettings.ShowHealth = not _G.ESPSettings.ShowHealth
+    ESPHealthBtn.Text = _G.ESPSettings.ShowHealth and "SHOW HEALTH: ON" or "SHOW HEALTH: OFF"
+    TweenService:Create(ESPHealthBtn, TweenInfo.new(0.2), {BackgroundColor3 = _G.ESPSettings.ShowHealth and Color3.fromRGB(30, 20, 60) or Color3.fromRGB(60, 20, 20)}):Play()
+end)
+
+ESPHealthModeBtn.MouseButton1Click:Connect(function()
+    if _G.ESPSettings.HealthMode == "Percent" then
+        _G.ESPSettings.HealthMode = "Integer"
+        ESPHealthModeBtn.Text = "HP MODE: NUMBER (/)"
+    else
+        _G.ESPSettings.HealthMode = "Percent"
+        ESPHealthModeBtn.Text = "HP MODE: PERCENT (%)"
+    end
+end)
+
+ESPBountyBtn.MouseButton1Click:Connect(function()
+    _G.ESPSettings.ShowBounty = not _G.ESPSettings.ShowBounty
+    ESPBountyBtn.Text = _G.ESPSettings.ShowBounty and "SHOW BOUNTY: ON" or "SHOW BOUNTY: OFF"
+    TweenService:Create(ESPBountyBtn, TweenInfo.new(0.2), {BackgroundColor3 = _G.ESPSettings.ShowBounty and Color3.fromRGB(30, 20, 60) or Color3.fromRGB(60, 20, 20)}):Play()
+end)
+
+-- ULTRA FPS BOOST BUTTON (UPDATE: FULLBRIGHT KHÔNG CHÓI MẮT)
 UltraBoostBtn.MouseButton1Click:Connect(function()
     UltraBoostBtn.Text = "APPLYING NUCLEAR BOOST..."
     task.wait(0.5)
     
     local function NuclearBoost()
-        -- 1. Lighting Clean (No fog, no shadow, bright)
+        -- 1. Lighting Clean (XÓA SƯƠNG + SET UP FULLBRIGHT XỊN/ KHÔNG LÓA)
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9 -- Xóa sương mù nhưng giữ render distance
         Lighting.FogStart = 9e9
-        Lighting.Brightness = 2
-        Lighting.ClockTime = 14 -- Luôn sáng
         
+        -- Logic Sáng Dịu (Fullbright Safe)
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 12 -- Giờ trưa nhưng điều tiết lại ambient
+        Lighting.Ambient = Color3.fromRGB(150, 150, 150) -- Giữ cho bóng dâm sáng sủa nhưng k bị nhạt lóa trắng
+        Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(0, 0, 0)
+        Lighting.ColorShift_Top = Color3.fromRGB(0, 0, 0)
+
         -- Xóa effects trong Lighting
         for _, v in pairs(Lighting:GetChildren()) do
             if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
@@ -1296,8 +1518,8 @@ UltraBoostBtn.MouseButton1Click:Connect(function()
         end
     end)
     
-    UltraBoostBtn.Text = "ULTRA BOOST ACTIVE (CLEAR)"
-    UltraBoostBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    UltraBoostBtn.Text = "ULTRA BOOST & FULLBRIGHT ACTIVE"
+    UltraBoostBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 50)
 end)
 
 -- Keybinds
