@@ -1,0 +1,2591 @@
+--========================================================--
+-- ROBLOX CLIENT VISUAL MINIMIZER
+-- EXTREME FULLBRIGHT + MATERIAL FLATTENER
+--========================================================--
+--
+-- StarterPlayer
+--     └── StarterPlayerScripts
+--             └── LocalScript
+--
+--========================================================--
+--
+-- MỤC TIÊU
+--
+-- CLIENT QUALITY
+-- • Graphics Quality = 7
+-- • Không chỉnh StreamingTargetRadius
+-- • Không chỉnh StreamingMinRadius
+-- • Không phá chunk distance
+--
+-- FULLBRIGHT
+-- • Ambient cao và đồng đều
+-- • GlobalShadows OFF
+-- • Sun/Moon contribution giảm về 0
+-- • EnvironmentDiffuse = 0
+-- • EnvironmentSpecular = 0
+-- • ColorShift = 0
+-- • Exposure = 0
+--
+-- LIGHT
+-- • Tất cả PointLight OFF
+-- • Tất cả SpotLight OFF
+-- • Tất cả SurfaceLight OFF
+-- • Brightness = 0
+-- • Range = 0
+-- • Shadows OFF
+--
+-- MATERIAL
+-- • Part -> SmoothPlastic
+-- • MeshPart -> SmoothPlastic
+-- • WedgePart -> SmoothPlastic
+-- • UnionOperation -> SmoothPlastic
+-- • mọi BasePart -> SmoothPlastic
+-- • MaterialVariant = ""
+-- • Reflectance = 0
+-- • CastShadow = false
+-- • Glass -> SmoothPlastic
+--
+-- PBR
+-- • SurfaceAppearance OFF / Destroy
+-- • MaterialVariant OFF
+--
+-- POST EFFECT
+-- • Bloom OFF
+-- • Blur OFF
+-- • ColorCorrection OFF
+-- • DepthOfField OFF
+-- • SunRays OFF
+-- • mọi PostEffect OFF
+-- • Atmosphere OFF
+-- • Clouds OFF
+--
+-- PARTICLE
+-- • Dust OFF
+-- • Debris OFF
+-- • Ash OFF
+-- • Mist OFF
+-- • Fog particles OFF
+-- • Sand particles OFF
+-- • Pollen OFF
+-- • Smoke particles OFF
+-- • Particle Rate giảm
+-- • Lifetime giảm
+-- • Size giảm
+-- • Speed OFF
+-- • Acceleration OFF
+-- • Rotation OFF
+-- • Flipbook OFF
+-- • LightEmission OFF
+-- • LightInfluence = 1
+-- • Brightness = 0
+-- • Transparency đơn giản
+--
+-- BEAM / TRAIL
+-- • Texture animation OFF
+-- • Segments giảm
+-- • Curve OFF
+-- • Width giảm
+-- • LightEmission OFF
+-- • Brightness = 0
+--
+-- CLASSIC VFX
+-- • Fire OFF
+-- • Smoke OFF
+-- • Sparkles OFF
+--
+-- SPECIAL
+-- • Highlight OFF
+-- • ForceField OFF
+-- • SelectionBox OFF
+-- • SelectionSphere OFF
+--
+-- TERRAIN / WATER
+-- • WaterReflectance = 0
+-- • WaterWaveSize = 0
+-- • WaterWaveSpeed = 0
+--
+-- TRANSPARENCY
+-- • Object gần như vô hình -> local invisible
+-- • Không replicate ngược server
+--
+-- AUTO ENFORCER
+-- • Object mới -> xử lý
+-- • Object streamed vào -> xử lý
+-- • Light mới -> tắt
+-- • Effect mới -> tắt
+-- • Material mới -> flatten
+--
+--========================================================--
+
+
+--========================================================--
+-- SERVICES
+--========================================================--
+
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+
+
+local Terrain =
+	Workspace:FindFirstChildOfClass("Terrain")
+
+
+--========================================================--
+-- CONFIG
+--========================================================--
+
+local CONFIG = {
+
+
+	--====================================================--
+	-- CLIENT QUALITY
+	--====================================================--
+
+	TARGET_GRAPHICS_QUALITY =
+		Enum.SavedQualitySetting.QualityLevel7,
+
+
+	--====================================================--
+	-- FULLBRIGHT
+	--====================================================--
+
+	ENABLE_FULLBRIGHT = true,
+
+
+	-- Balanced FullBright
+	--
+	-- 185  = khá sáng
+	-- 195  = sáng
+	-- 205  = rất sáng
+	-- 215  = gần trắng
+	--
+	-- 195 được dùng làm mức cân bằng.
+	--
+	FULLBRIGHT_AMBIENT =
+		Color3.fromRGB(
+			195,
+			195,
+			195
+		),
+
+
+	FULLBRIGHT_OUTDOOR_AMBIENT =
+		Color3.fromRGB(
+			195,
+			195,
+			195
+		),
+
+
+	-- Tắt contribution trực tiếp của Sun/Moon.
+	FULLBRIGHT_BRIGHTNESS = 0,
+
+
+	-- Không đổi màu ánh sáng.
+	FULLBRIGHT_COLOR_SHIFT =
+		Color3.new(
+			0,
+			0,
+			0
+		),
+
+
+	-- Không tăng exposure.
+	FULLBRIGHT_EXPOSURE = 0,
+
+
+	--====================================================--
+	-- GLOBAL LIGHTING
+	--====================================================--
+
+	DISABLE_GLOBAL_SHADOWS = true,
+
+	DISABLE_ENVIRONMENT_DIFFUSE = true,
+
+	DISABLE_ENVIRONMENT_SPECULAR = true,
+
+	DISABLE_PART_SHADOWS = true,
+
+	DISABLE_REFLECTANCE = true,
+
+
+	--====================================================--
+	-- ALL LOCAL LIGHTS
+	--====================================================--
+
+	DISABLE_ALL_LIGHTS = true,
+
+
+	--====================================================--
+	-- MATERIAL FLATTENER
+	--====================================================--
+
+	SIMPLIFY_ALL_MATERIALS = true,
+
+	FLAT_MATERIAL =
+		Enum.Material.SmoothPlastic,
+
+
+	REMOVE_MATERIAL_VARIANT = true,
+
+	FLATTEN_GLASS = true,
+
+
+	--====================================================--
+	-- MESH TEXTURES
+	--====================================================--
+	--
+	-- TRUE:
+	--   MeshPart.TextureID bị xóa.
+	--
+	-- FALSE:
+	--   giữ texture nhưng material vẫn SmoothPlastic.
+	--
+	-- Mặc định FALSE để giữ hình dạng/texture map.
+	--
+	--====================================================--
+
+	REMOVE_MESHPART_TEXTURES = false,
+
+
+	--====================================================--
+	-- PBR
+	--====================================================--
+
+	REMOVE_SURFACE_APPEARANCE = true,
+
+
+	--====================================================--
+	-- POST PROCESS
+	--====================================================--
+
+	DISABLE_POST_EFFECTS = true,
+
+	DISABLE_ATMOSPHERE = true,
+
+	DISABLE_CLOUDS = true,
+
+
+	--====================================================--
+	-- FOG
+	--====================================================--
+
+	DISABLE_FOG = true,
+
+
+	--====================================================--
+	-- TERRAIN
+	--====================================================--
+
+	DISABLE_TERRAIN_DECORATION = true,
+
+	DISABLE_WATER_WAVES = true,
+
+	DISABLE_WATER_REFLECTION = true,
+
+
+	--====================================================--
+	-- CLASSIC VFX
+	--====================================================--
+
+	DISABLE_FIRE = true,
+
+	DISABLE_SMOKE = true,
+
+	DISABLE_SPARKLES = true,
+
+
+	--====================================================--
+	-- SPECIAL EFFECTS
+	--====================================================--
+
+	DISABLE_HIGHLIGHTS = true,
+
+	DISABLE_FORCEFIELDS = true,
+
+	DISABLE_SELECTION_EFFECTS = true,
+
+
+	--====================================================--
+	-- PARTICLES
+	--====================================================--
+
+	ENABLE_EXTREME_PARTICLE_REDUCTION = true,
+
+	DISABLE_DUST = true,
+
+	DISABLE_FLIPBOOK_ANIMATION = true,
+
+	DISABLE_PARTICLE_LIGHTING = true,
+
+	DISABLE_PARTICLE_ROTATION = true,
+
+	DISABLE_PARTICLE_MOTION = true,
+
+	REDUCE_PARTICLE_TRANSPARENCY = true,
+
+
+	--====================================================--
+	-- OPTIONAL:
+	-- TẮT HOÀN TOÀN BEAM
+	--====================================================--
+
+	DISABLE_BEAMS = false,
+
+	ENABLE_EXTREME_BEAM_REDUCTION = true,
+
+
+	--====================================================--
+	-- OPTIONAL:
+	-- TẮT HOÀN TOÀN TRAIL
+	--====================================================--
+
+	DISABLE_TRAILS = false,
+
+	ENABLE_EXTREME_TRAIL_REDUCTION = true,
+
+
+	--====================================================--
+	-- TRANSPARENT OBJECT
+	--====================================================--
+
+	HIDE_ALMOST_INVISIBLE_PARTS = true,
+
+	INVISIBLE_THRESHOLD = 0.985,
+
+
+	--====================================================--
+	-- LOOP
+	--====================================================--
+
+	ENFORCE_INTERVAL = 0.5,
+}
+
+
+--========================================================--
+-- SAFE
+--========================================================--
+
+local function safe(fn)
+
+	pcall(fn)
+
+end
+
+
+--========================================================--
+-- SAFE PROPERTY SET
+--========================================================--
+
+local function safeSet(
+	object,
+	property,
+	value
+)
+
+	pcall(
+		function()
+
+			object[property] = value
+
+		end
+	)
+
+end
+
+
+--========================================================--
+-- FORCE GRAPHICS QUALITY
+--========================================================--
+
+local function forceGraphicsQuality()
+
+
+	local gameSettings =
+		UserSettings().GameSettings
+
+
+	safe(
+		function()
+
+			gameSettings.SavedQualityLevel =
+				CONFIG.TARGET_GRAPHICS_QUALITY
+
+		end
+	)
+
+end
+
+
+--========================================================--
+-- FULLBRIGHT
+--========================================================--
+--
+-- Roblox:
+--
+-- GlobalShadows = false
+--     ->
+-- Ambient được áp dụng đồng đều.
+--
+-- EnvironmentDiffuseScale = 0
+--     ->
+-- không lấy dynamic environment diffuse.
+--
+-- EnvironmentSpecularScale = 0
+--     ->
+-- không lấy environment specular.
+--
+-- Brightness = 0
+--     ->
+-- không lấy phần contribution chính từ Sun/Moon.
+--
+--========================================================--
+
+local function forceFullBright()
+
+
+	if not CONFIG.ENABLE_FULLBRIGHT then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- NO GLOBAL SHADOW
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"GlobalShadows",
+		false
+	)
+
+
+	--====================================================--
+	-- NO SUN / MOON CONTRIBUTION
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"Brightness",
+		CONFIG.FULLBRIGHT_BRIGHTNESS
+	)
+
+
+	--====================================================--
+	-- UNIFORM AMBIENT
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"Ambient",
+		CONFIG.FULLBRIGHT_AMBIENT
+	)
+
+
+	--====================================================--
+	-- UNIFORM OUTDOOR AMBIENT
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"OutdoorAmbient",
+		CONFIG.FULLBRIGHT_OUTDOOR_AMBIENT
+	)
+
+
+	--====================================================--
+	-- NO COLOR SHIFT
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"ColorShift_Top",
+		CONFIG.FULLBRIGHT_COLOR_SHIFT
+	)
+
+
+	safeSet(
+		Lighting,
+		"ColorShift_Bottom",
+		CONFIG.FULLBRIGHT_COLOR_SHIFT
+	)
+
+
+	--====================================================--
+	-- NO EXPOSURE BOOST
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"ExposureCompensation",
+		CONFIG.FULLBRIGHT_EXPOSURE
+	)
+
+
+end
+
+
+--========================================================--
+-- FORCE LIGHTING MINIMUM
+--========================================================--
+
+local function forceLighting()
+
+
+	--====================================================--
+	-- FULLBRIGHT
+	--====================================================--
+
+	forceFullBright()
+
+
+	--====================================================--
+	-- SHADOW
+	--====================================================--
+
+	if CONFIG.DISABLE_GLOBAL_SHADOWS then
+
+		safeSet(
+			Lighting,
+			"GlobalShadows",
+			false
+		)
+
+	end
+
+
+	--====================================================--
+	-- DIFFUSE
+	--====================================================--
+
+	if CONFIG.DISABLE_ENVIRONMENT_DIFFUSE then
+
+		safeSet(
+			Lighting,
+			"EnvironmentDiffuseScale",
+			0
+		)
+
+	end
+
+
+	--====================================================--
+	-- SPECULAR
+	--====================================================--
+
+	if CONFIG.DISABLE_ENVIRONMENT_SPECULAR then
+
+		safeSet(
+			Lighting,
+			"EnvironmentSpecularScale",
+			0
+		)
+
+	end
+
+
+	--====================================================--
+	-- SHADOW SOFTNESS
+	--====================================================--
+
+	safeSet(
+		Lighting,
+		"ShadowSoftness",
+		0
+	)
+
+
+	--====================================================--
+	-- FOG
+	--====================================================--
+
+	if CONFIG.DISABLE_FOG then
+
+		safeSet(
+			Lighting,
+			"FogStart",
+			0
+		)
+
+
+		safeSet(
+			Lighting,
+			"FogEnd",
+			1000000
+		)
+
+	end
+
+end
+
+
+--========================================================--
+-- DISABLE EVERY LIGHT
+--========================================================--
+--
+-- PointLight
+-- SpotLight
+-- SurfaceLight
+--
+-- đều kế thừa Light.
+--
+--========================================================--
+
+local function disableAllLights(obj)
+
+
+	if not CONFIG.DISABLE_ALL_LIGHTS then
+
+		return
+
+	end
+
+
+	if not obj:IsA("Light") then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- OFF
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Enabled",
+		false
+	)
+
+
+	--====================================================--
+	-- ZERO BRIGHTNESS
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Brightness",
+		0
+	)
+
+
+	--====================================================--
+	-- ZERO RANGE
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Range",
+		0
+	)
+
+
+	--====================================================--
+	-- SHADOWS OFF
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Shadows",
+		false
+	)
+
+end
+
+
+--========================================================--
+-- MATERIAL FLATTENER
+--========================================================--
+--
+-- ĐÂY LÀ PHẦN MỚI QUAN TRỌNG.
+--
+-- Tất cả BasePart được đưa về SmoothPlastic.
+--
+-- Điều này áp dụng cho:
+--
+-- Part
+-- MeshPart
+-- WedgePart
+-- CornerWedgePart
+-- TrussPart
+-- UnionOperation
+-- Seat
+-- VehicleSeat
+-- SpawnLocation
+-- v.v.
+--
+-- bởi vì chúng đều là BasePart.
+--
+--========================================================--
+
+local function flattenMaterial(obj)
+
+
+	if not CONFIG.SIMPLIFY_ALL_MATERIALS then
+
+		return
+
+	end
+
+
+	if not obj:IsA("BasePart") then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- SMOOTH PLASTIC
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Material",
+		CONFIG.FLAT_MATERIAL
+	)
+
+
+	--====================================================--
+	-- MATERIAL VARIANT OFF
+	--====================================================--
+
+	if CONFIG.REMOVE_MATERIAL_VARIANT then
+
+		safeSet(
+			obj,
+			"MaterialVariant",
+			""
+		)
+
+	end
+
+
+	--====================================================--
+	-- REFLECTANCE OFF
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Reflectance",
+		0
+	)
+
+
+	--====================================================--
+	-- SHADOW OFF
+	--====================================================--
+
+	if CONFIG.DISABLE_PART_SHADOWS then
+
+		safeSet(
+			obj,
+			"CastShadow",
+			false
+		)
+
+	end
+
+
+	--====================================================--
+	-- GLASS OFF
+	--====================================================--
+	--
+	-- Glass có reflectiveness/distortion riêng.
+	--
+	--====================================================--
+
+	if CONFIG.FLATTEN_GLASS then
+
+		safe(
+			function()
+
+				if obj.Material ==
+					Enum.Material.Glass then
+
+					obj.Material =
+						Enum.Material.SmoothPlastic
+
+				end
+
+			end
+		)
+
+	end
+
+end
+
+
+--========================================================--
+-- MESH TEXTURE OPTIMIZER
+--========================================================--
+--
+-- Mặc định KHÔNG xóa TextureID.
+-- Như vậy map vẫn giữ hình ảnh.
+--
+-- Có thể bật:
+--
+-- REMOVE_MESHPART_TEXTURES = true
+--
+-- nếu muốn biến MeshPart thành mesh màu đơn giản nhất.
+--
+--========================================================--
+
+local function optimizeMeshTexture(obj)
+
+
+	if not obj:IsA("MeshPart") then
+
+		return
+
+	end
+
+
+	if not CONFIG.REMOVE_MESHPART_TEXTURES then
+
+		return
+
+	end
+
+
+	safeSet(
+		obj,
+		"TextureID",
+		""
+	)
+
+end
+
+
+--========================================================--
+-- PBR / SURFACE APPEARANCE
+--========================================================--
+
+local function optimizeSurfaceAppearance(obj)
+
+
+	if not CONFIG.REMOVE_SURFACE_APPEARANCE then
+
+		return
+
+	end
+
+
+	if not obj:IsA("SurfaceAppearance") then
+
+		return
+
+	end
+
+
+	safe(
+		function()
+
+			obj:Destroy()
+
+		end
+	)
+
+end
+
+
+--========================================================--
+-- POST EFFECT
+--========================================================--
+
+local function disablePostEffect(obj)
+
+
+	if not CONFIG.DISABLE_POST_EFFECTS then
+
+		return
+
+	end
+
+
+	if obj:IsA("PostEffect") then
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+	end
+
+end
+
+
+--========================================================--
+-- ATMOSPHERE / CLOUDS
+--========================================================--
+
+local function optimizeLightingChild(obj)
+
+
+	--====================================================--
+	-- POST EFFECT
+	--====================================================--
+
+	if obj:IsA("PostEffect") then
+
+		disablePostEffect(obj)
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- ATMOSPHERE
+	--====================================================--
+
+	if obj:IsA("Atmosphere")
+		and CONFIG.DISABLE_ATMOSPHERE then
+
+
+		safeSet(
+			obj,
+			"Density",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"Haze",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"Glare",
+			0
+		)
+
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- CLOUDS
+	--====================================================--
+
+	if obj:IsA("Clouds")
+		and CONFIG.DISABLE_CLOUDS then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		return
+
+	end
+
+end
+
+
+--========================================================--
+-- TERRAIN / WATER
+--========================================================--
+
+local function optimizeTerrain()
+
+
+	Terrain =
+		Workspace:FindFirstChildOfClass("Terrain")
+
+
+	if not Terrain then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- TERRAIN DECORATION
+	--====================================================--
+	--
+	-- Có thể bị Not Scriptable.
+	-- pcall để không làm script chết.
+	--
+	--====================================================--
+
+	if CONFIG.DISABLE_TERRAIN_DECORATION then
+
+		safeSet(
+			Terrain,
+			"Decoration",
+			false
+		)
+
+	end
+
+
+	--====================================================--
+	-- WATER REFLECTION
+	--====================================================--
+
+	if CONFIG.DISABLE_WATER_REFLECTION then
+
+		safeSet(
+			Terrain,
+			"WaterReflectance",
+			0
+		)
+
+	end
+
+
+	--====================================================--
+	-- WATER WAVES
+	--====================================================--
+
+	if CONFIG.DISABLE_WATER_WAVES then
+
+		safeSet(
+			Terrain,
+			"WaterWaveSize",
+			0
+		)
+
+
+		safeSet(
+			Terrain,
+			"WaterWaveSpeed",
+			0
+		)
+
+	end
+
+end
+
+
+--========================================================--
+-- DUST DETECTOR
+--========================================================--
+
+local function isDustParticle(obj)
+
+
+	local name =
+		string.lower(
+			obj.Name
+		)
+
+
+	local dustWords = {
+
+
+		"dust",
+
+		"dusty",
+
+		"dustcloud",
+
+		"dust_cloud",
+
+		"dustparticle",
+
+		"dustparticleemitter",
+
+
+		"debris",
+
+		"debrisfx",
+
+		"debrisparticle",
+
+
+		"ash",
+
+		"ashparticle",
+
+
+		"mist",
+
+		"mistparticle",
+
+		"mistfx",
+
+
+		"fog",
+
+		"fogparticle",
+
+
+		"pollen",
+
+		"pollenparticle",
+
+
+		"sand",
+
+		"sandparticle",
+
+
+		"dirt",
+
+		"dirtparticle",
+
+
+		"mote",
+
+		"motes",
+
+
+		"speck",
+
+		"specks",
+
+
+		"ambientdust",
+
+		"ambient_dust",
+
+
+		"floatingdust",
+
+		"floating_dust",
+
+
+		"grounddust",
+
+		"ground_dust",
+
+
+		"airdust",
+
+		"air_dust",
+
+
+	}
+
+
+	for _, word in ipairs(
+		dustWords
+	) do
+
+
+		if string.find(
+			name,
+			word,
+			1,
+			true
+		) then
+
+			return true
+
+		end
+
+
+	end
+
+
+	return false
+
+end
+
+
+--========================================================--
+-- PARTICLE OPTIMIZER
+--========================================================--
+
+local function minimizeParticle(obj)
+
+
+	if not obj:IsA("ParticleEmitter") then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- REMOVE DUST
+	--====================================================--
+
+	if CONFIG.DISABLE_DUST
+		and isDustParticle(obj) then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		safeSet(
+			obj,
+			"Rate",
+			0
+		)
+
+
+		safe(
+			function()
+
+				obj:Clear()
+
+			end
+		)
+
+
+		safeSet(
+			obj,
+			"LocalTransparencyModifier",
+			1
+		)
+
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- EXTREME REDUCTION
+	--====================================================--
+
+	if not
+		CONFIG.ENABLE_EXTREME_PARTICLE_REDUCTION
+	then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- RATE
+	--====================================================--
+
+	safe(
+		function()
+
+			obj.Rate =
+				math.min(
+					obj.Rate,
+					2
+				)
+
+		end
+	)
+
+
+	--====================================================--
+	-- LIFETIME
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Lifetime",
+		NumberRange.new(
+			0.08,
+			0.18
+		)
+	)
+
+
+	--====================================================--
+	-- SIZE
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Size",
+		NumberSequence.new(
+			0.08
+		)
+	)
+
+
+	--====================================================--
+	-- MOTION
+	--====================================================--
+
+	if CONFIG.DISABLE_PARTICLE_MOTION then
+
+
+		safeSet(
+			obj,
+			"Speed",
+			NumberRange.new(
+				0,
+				0
+			)
+		)
+
+
+		safeSet(
+			obj,
+			"Acceleration",
+			Vector3.zero
+		)
+
+
+		safeSet(
+			obj,
+			"VelocityInheritance",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"Drag",
+			1
+		)
+
+
+		safeSet(
+			obj,
+			"SpreadAngle",
+			Vector2.zero
+		)
+
+
+		safeSet(
+			obj,
+			"VelocitySpread",
+			0
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- ROTATION
+	--====================================================--
+
+	if CONFIG.DISABLE_PARTICLE_ROTATION then
+
+
+		safeSet(
+			obj,
+			"Rotation",
+			NumberRange.new(
+				0,
+				0
+			)
+		)
+
+
+		safeSet(
+			obj,
+			"RotSpeed",
+			NumberRange.new(
+				0,
+				0
+			)
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- SQUASH
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Squash",
+		NumberSequence.new(
+			0
+		)
+	)
+
+
+	--====================================================--
+	-- Z OFFSET
+	--====================================================--
+
+	safeSet(
+		obj,
+		"ZOffset",
+		0
+	)
+
+
+	--====================================================--
+	-- PARTICLE LIGHT
+	--====================================================--
+
+	if CONFIG.DISABLE_PARTICLE_LIGHTING then
+
+
+		safeSet(
+			obj,
+			"LightEmission",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"LightInfluence",
+			1
+		)
+
+
+		safeSet(
+			obj,
+			"Brightness",
+			0
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- FLIPBOOK OFF
+	--====================================================--
+
+	if CONFIG.DISABLE_FLIPBOOK_ANIMATION then
+
+
+		safeSet(
+			obj,
+			"FlipbookLayout",
+			Enum.ParticleFlipbookLayout.None
+		)
+
+
+		safeSet(
+			obj,
+			"FlipbookFramerate",
+			NumberRange.new(
+				0,
+				0
+			)
+		)
+
+
+		safeSet(
+			obj,
+			"FlipbookStartRandom",
+			false
+		)
+
+
+		safeSet(
+			obj,
+			"FlipbookBlendFrames",
+			false
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- TRANSPARENCY SIMPLIFICATION
+	--====================================================--
+
+	if CONFIG.REDUCE_PARTICLE_TRANSPARENCY then
+
+
+		safeSet(
+			obj,
+			"Transparency",
+			NumberSequence.new(
+				0
+			)
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- NO WIND
+	--====================================================--
+
+	safeSet(
+		obj,
+		"WindAffectsDrag",
+		false
+	)
+
+
+	--====================================================--
+	-- NOT LOCKED
+	--====================================================--
+
+	safeSet(
+		obj,
+		"LockedToPart",
+		false
+	)
+
+
+	--====================================================--
+	-- CAMERA FACING
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Orientation",
+		Enum.ParticleOrientation.FacingCamera
+	)
+
+end
+
+
+--========================================================--
+-- BEAM OPTIMIZER
+--========================================================--
+
+local function minimizeBeam(obj)
+
+
+	if not obj:IsA("Beam") then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- OPTIONAL FULL OFF
+	--====================================================--
+
+	if CONFIG.DISABLE_BEAMS then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		return
+
+	end
+
+
+	if not
+		CONFIG.ENABLE_EXTREME_BEAM_REDUCTION
+	then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- TEXTURE ANIMATION
+	--====================================================--
+
+	safeSet(
+		obj,
+		"TextureSpeed",
+		0
+	)
+
+
+	--====================================================--
+	-- SEGMENTS
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Segments",
+		1
+	)
+
+
+	--====================================================--
+	-- WIDTH
+	--====================================================--
+
+	safe(
+		function()
+
+			obj.Width0 =
+				math.min(
+					obj.Width0,
+					0.1
+				)
+
+		end
+	)
+
+
+	safe(
+		function()
+
+			obj.Width1 =
+				math.min(
+					obj.Width1,
+					0.1
+				)
+
+		end
+	)
+
+
+	--====================================================--
+	-- CURVE
+	--====================================================--
+
+	safeSet(
+		obj,
+		"CurveSize0",
+		0
+	)
+
+
+	safeSet(
+		obj,
+		"CurveSize1",
+		0
+	)
+
+
+	--====================================================--
+	-- LIGHT
+	--====================================================--
+
+	safeSet(
+		obj,
+		"LightEmission",
+		0
+	)
+
+
+	safeSet(
+		obj,
+		"LightInfluence",
+		1
+	)
+
+
+	safeSet(
+		obj,
+		"Brightness",
+		0
+	)
+
+
+	--====================================================--
+	-- TRANSPARENCY
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Transparency",
+		NumberSequence.new(
+			0
+		)
+	)
+
+end
+
+
+--========================================================--
+-- TRAIL OPTIMIZER
+--========================================================--
+
+local function minimizeTrail(obj)
+
+
+	if not obj:IsA("Trail") then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- OPTIONAL FULL OFF
+	--====================================================--
+
+	if CONFIG.DISABLE_TRAILS then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		return
+
+	end
+
+
+	if not
+		CONFIG.ENABLE_EXTREME_TRAIL_REDUCTION
+	then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- LIFETIME
+	--====================================================--
+
+	safe(
+		function()
+
+			obj.Lifetime =
+				math.min(
+					obj.Lifetime,
+					0.05
+				)
+
+		end
+	)
+
+
+	--====================================================--
+	-- MIN LENGTH
+	--====================================================--
+
+	safeSet(
+		obj,
+		"MinLength",
+		0
+	)
+
+
+	--====================================================--
+	-- WIDTH
+	--====================================================--
+
+	safeSet(
+		obj,
+		"WidthScale",
+		NumberSequence.new(
+			0.1
+		)
+	)
+
+
+	--====================================================--
+	-- LIGHT
+	--====================================================--
+
+	safeSet(
+		obj,
+		"LightEmission",
+		0
+	)
+
+
+	safeSet(
+		obj,
+		"LightInfluence",
+		1
+	)
+
+
+	safeSet(
+		obj,
+		"Brightness",
+		0
+	)
+
+
+	--====================================================--
+	-- TRANSPARENCY
+	--====================================================--
+
+	safeSet(
+		obj,
+		"Transparency",
+		NumberSequence.new(
+			0
+		)
+	)
+
+end
+
+
+--========================================================--
+-- FIRE / SMOKE / SPARKLES
+--========================================================--
+
+local function minimizeClassicVFX(obj)
+
+
+	--====================================================--
+	-- FIRE
+	--====================================================--
+
+	if CONFIG.DISABLE_FIRE
+		and obj:IsA("Fire") then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		safeSet(
+			obj,
+			"Heat",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"Size",
+			0
+		)
+
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- SMOKE
+	--====================================================--
+
+	if CONFIG.DISABLE_SMOKE
+		and obj:IsA("Smoke") then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		safeSet(
+			obj,
+			"Size",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"Opacity",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"RiseVelocity",
+			0
+		)
+
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- SPARKLES
+	--====================================================--
+
+	if CONFIG.DISABLE_SPARKLES
+		and obj:IsA("Sparkles") then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+		return
+
+	end
+
+end
+
+
+--========================================================--
+-- HIGHLIGHT / FORCEFIELD / SELECTION
+--========================================================--
+
+local function optimizeSpecialEffects(obj)
+
+
+	--====================================================--
+	-- HIGHLIGHT
+	--====================================================--
+
+	if CONFIG.DISABLE_HIGHLIGHTS
+		and obj:IsA("Highlight") then
+
+
+		safeSet(
+			obj,
+			"Enabled",
+			false
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- FORCEFIELD
+	--====================================================--
+
+	if CONFIG.DISABLE_FORCEFIELDS
+		and obj:IsA("ForceField") then
+
+
+		safeSet(
+			obj,
+			"Visible",
+			false
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- SELECTION BOX
+	--====================================================--
+
+	if CONFIG.DISABLE_SELECTION_EFFECTS
+		and obj:IsA("SelectionBox") then
+
+
+		safeSet(
+			obj,
+			"Visible",
+			false
+		)
+
+
+	end
+
+
+	--====================================================--
+	-- SELECTION SPHERE
+	--====================================================--
+
+	if CONFIG.DISABLE_SELECTION_EFFECTS
+		and obj:IsA("SelectionSphere") then
+
+
+		safeSet(
+			obj,
+			"Visible",
+			false
+		)
+
+
+	end
+
+end
+
+
+--========================================================--
+-- DECAL / TEXTURE
+--========================================================--
+
+local function optimizeDecalOrTexture(obj)
+
+
+	if not obj:IsA("Decal")
+		and not obj:IsA("Texture") then
+
+		return
+
+	end
+
+
+	if not
+		CONFIG.REDUCE_DECAL_TRANSPARENCY_EFFECTS
+	then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- GẦN VÔ HÌNH -> LOCAL HIDDEN
+	--====================================================--
+
+	safe(
+		function()
+
+
+			if obj.Transparency >= 0.985 then
+
+
+				obj.LocalTransparencyModifier =
+					1
+
+
+			elseif obj.Transparency >= 0.8 then
+
+
+				obj.LocalTransparencyModifier =
+					0.5
+
+
+			end
+
+
+		end
+	)
+
+
+	--====================================================--
+	-- TEXTURE SCROLL STOP
+	--====================================================--
+
+	if obj:IsA("Texture") then
+
+
+		safeSet(
+			obj,
+			"OffsetStudsU",
+			0
+		)
+
+
+		safeSet(
+			obj,
+			"OffsetStudsV",
+			0
+		)
+
+
+	end
+
+end
+
+
+--========================================================--
+-- ALMOST INVISIBLE PARTS
+--========================================================--
+
+local function optimizeTransparentPart(obj)
+
+
+	if not obj:IsA("BasePart") then
+
+		return
+
+	end
+
+
+	if not
+		CONFIG.HIDE_ALMOST_INVISIBLE_PARTS
+	then
+
+		return
+
+	end
+
+
+	safe(
+		function()
+
+
+			if obj.Transparency
+				>= CONFIG.INVISIBLE_THRESHOLD then
+
+
+				obj.LocalTransparencyModifier =
+					1
+
+
+			end
+
+
+		end
+	)
+
+end
+
+
+--========================================================--
+-- MASTER OPTIMIZER
+--========================================================--
+
+local function optimize(obj)
+
+
+	--====================================================--
+	-- LIGHT
+	--====================================================--
+
+	disableAllLights(obj)
+
+
+	--====================================================--
+	-- MATERIAL
+	--====================================================--
+
+	flattenMaterial(obj)
+
+
+	--====================================================--
+	-- MESH TEXTURE
+	--====================================================--
+
+	optimizeMeshTexture(obj)
+
+
+	--====================================================--
+	-- PART
+	--====================================================--
+
+	optimizeTransparentPart(obj)
+
+
+	--====================================================--
+	-- PBR
+	--====================================================--
+
+	optimizeSurfaceAppearance(obj)
+
+
+	--====================================================--
+	-- POST EFFECT
+	--====================================================--
+
+	disablePostEffect(obj)
+
+
+	--====================================================--
+	-- PARTICLE
+	--====================================================--
+
+	minimizeParticle(obj)
+
+
+	--====================================================--
+	-- BEAM
+	--====================================================--
+
+	minimizeBeam(obj)
+
+
+	--====================================================--
+	-- TRAIL
+	--====================================================--
+
+	minimizeTrail(obj)
+
+
+	--====================================================--
+	-- CLASSIC VFX
+	--====================================================--
+
+	minimizeClassicVFX(obj)
+
+
+	--====================================================--
+	-- SPECIAL EFFECTS
+	--====================================================--
+
+	optimizeSpecialEffects(obj)
+
+
+	--====================================================--
+	-- DECAL / TEXTURE
+	--====================================================--
+
+	optimizeDecalOrTexture(obj)
+
+end
+
+
+--========================================================--
+-- INITIAL FORCE
+--========================================================--
+
+forceGraphicsQuality()
+
+forceFullBright()
+
+forceLighting()
+
+optimizeTerrain()
+
+
+--========================================================--
+-- INITIAL LIGHTING
+--========================================================--
+
+for _, obj in ipairs(
+	Lighting:GetChildren()
+) do
+
+
+	optimizeLightingChild(obj)
+
+	disableAllLights(obj)
+
+
+end
+
+
+--========================================================--
+-- INITIAL WORKSPACE
+--========================================================--
+
+for _, obj in ipairs(
+	Workspace:GetDescendants()
+) do
+
+
+	optimize(obj)
+
+
+end
+
+
+--========================================================--
+-- NEW / STREAMED OBJECT
+--========================================================--
+
+Workspace.DescendantAdded:Connect(
+
+	function(obj)
+
+
+		task.defer(
+
+			function()
+
+
+				if obj
+					and obj.Parent then
+
+
+					optimize(obj)
+
+
+				end
+
+
+			end
+		)
+
+
+	end
+
+)
+
+
+--========================================================--
+-- LIGHTING CHILD ADDED
+--========================================================--
+
+Lighting.ChildAdded:Connect(
+
+	function(obj)
+
+
+		task.defer(
+
+			function()
+
+
+				if obj
+					and obj.Parent == Lighting then
+
+
+					optimizeLightingChild(obj)
+
+					disableAllLights(obj)
+
+
+				end
+
+
+			end
+		)
+
+
+	end
+
+)
+
+
+--========================================================--
+-- CAMERA
+--========================================================--
+
+local function optimizeCamera(camera)
+
+
+	if not camera then
+
+		return
+
+	end
+
+
+	--====================================================--
+	-- EXISTING CAMERA EFFECTS
+	--====================================================--
+
+	for _, obj in ipairs(
+		camera:GetChildren()
+	) do
+
+
+		disablePostEffect(obj)
+
+		disableAllLights(obj)
+
+
+	end
+
+
+	--====================================================--
+	-- FUTURE CAMERA EFFECTS
+	--====================================================--
+
+	camera.ChildAdded:Connect(
+
+		function(obj)
+
+
+			task.defer(
+
+				function()
+
+
+					if obj
+						and obj.Parent == camera then
+
+
+						disablePostEffect(obj)
+
+						disableAllLights(obj)
+
+
+					end
+
+
+				end
+			)
+
+
+		end
+	)
+
+end
+
+
+optimizeCamera(
+	Workspace.CurrentCamera
+)
+
+
+--========================================================--
+-- CAMERA CHANGES
+--========================================================--
+
+Workspace:GetPropertyChangedSignal(
+	"CurrentCamera"
+):Connect(
+
+	function()
+
+
+		task.defer(
+
+			function()
+
+
+				optimizeCamera(
+					Workspace.CurrentCamera
+				)
+
+
+			end
+		)
+
+
+	end
+
+)
+
+
+--========================================================--
+-- CONTINUOUS ENFORCER
+--========================================================--
+--
+-- Không quét toàn bộ object mỗi frame.
+--
+-- 0.5 giây:
+--   • đủ nhanh để chống effect được bật lại
+--   • không biến optimizer thành một nguồn lag mới
+--
+--========================================================--
+
+task.spawn(
+
+	function()
+
+
+		while true do
+
+
+			--================================================--
+			-- GRAPHICS QUALITY
+			--================================================--
+
+			forceGraphicsQuality()
+
+
+			--================================================--
+			-- FULLBRIGHT
+			--================================================--
+
+			forceFullBright()
+
+
+			--================================================--
+			-- GLOBAL LIGHTING
+			--================================================--
+
+			forceLighting()
+
+
+			--================================================--
+			-- TERRAIN
+			--================================================--
+
+			optimizeTerrain()
+
+
+			--================================================--
+			-- LIGHTING
+			--================================================--
+
+			for _, obj in ipairs(
+				Lighting:GetChildren()
+			) do
+
+
+				optimizeLightingChild(obj)
+
+				disableAllLights(obj)
+
+
+			end
+
+
+			--================================================--
+			-- CAMERA
+			--================================================--
+
+			local camera =
+				Workspace.CurrentCamera
+
+
+			if camera then
+
+
+				for _, obj in ipairs(
+					camera:GetChildren()
+				) do
+
+
+					disablePostEffect(obj)
+
+					disableAllLights(obj)
+
+
+				end
+
+
+			end
+
+
+			--================================================--
+			-- WORLD LIGHT SOURCES
+			--================================================--
+
+			for _, obj in ipairs(
+				Workspace:GetDescendants()
+			) do
+
+
+				if obj:IsA("Light") then
+
+					disableAllLights(obj)
+
+				end
+
+
+			end
+
+
+			--================================================--
+			-- MATERIALS THAT MAY HAVE BEEN RESTORED
+			--================================================--
+			--
+			-- Chỉ xử lý BasePart.
+			--
+			-- Điều này giữ optimizer mạnh ngay cả khi game
+			-- thay Material sau khi object được tạo.
+			--
+			--================================================--
+
+			for _, obj in ipairs(
+				Workspace:GetDescendants()
+			) do
+
+
+				if obj:IsA("BasePart") then
+
+					flattenMaterial(obj)
+
+				end
+
+
+			end
+
+
+			--================================================--
+			-- WAIT
+			--================================================--
+
+			task.wait(
+				CONFIG.ENFORCE_INTERVAL
+			)
+
+
+		end
+
+	end
+
+)
